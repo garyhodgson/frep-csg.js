@@ -1,63 +1,153 @@
-<!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Frep-csg.js by garyhodgson</title>
-    
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-  </head>
-  <body>
-    <div class="wrapper">
-      <header>
-        <h1>Frep-csg.js</h1>
-        <p>Function Representation CSG</p>
-        <p class="view"><a href="https://github.com/garyhodgson/frep-csg.js">View the Project on GitHub <small>garyhodgson/frep-csg.js</small></a></p>
-        <ul>
-          <li><a href="https://github.com/garyhodgson/frep-csg.js/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/garyhodgson/frep-csg.js/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/garyhodgson/frep-csg.js">Fork On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h3>Welcome to GitHub Pages.</h3>
+<head>
+	<title>FREP CSG Test Page</title>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+	<script src="jquery.js"></script>
+	<script src="lightgl.js"></script>
+  	<script src="frep-csg.js"></script>
+	<script src="viewer.js"></script>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+  <style>
+  	.editor { width: 39%; height: 600px; }
+	.viewer { float: right; width: 60%; height: 600px; background: #EEE;}
+	.controls { width: 100%; height: 200px; padding: 5px; margin: 2px; border:1px dashed grey; }
+	input[type=number] { width: 60px;}
+	#grid input { width: 30px;}
+	canvas { cursor: move; }
+  </style>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+  <script>
 
-<h3>Designer Templates</h3>
+	$(document).ready(function() {
+		$('#editor1').val("\nreturn CSG.sphere({center:[0,0,0],radius:5});\n")
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+		new Viewer(800, 600, 30, 'viewer1')
 
-<h3>Rather Drive Stick?</h3>
+		$('#polygonise').click(function(e){			
+			var f = new Function('', $('#editor1').val());
+			var model = f();
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+			var grid = parseFloat($('#grid').val());
 
-<h3>Authors and Contributors</h3>
+			$('#zProgress').attr("max", grid);
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+			var minX = parseFloat($('#boundaryBoxMinX').val());
+			var minY = parseFloat($('#boundaryBoxMinY').val());
+			var minZ = parseFloat($('#boundaryBoxMinZ').val());
+			var maxX = parseFloat($('#boundaryBoxMaxX').val());
+			var maxY = parseFloat($('#boundaryBoxMaxY').val());
+			var maxZ = parseFloat($('#boundaryBoxMaxZ').val());
+		
+			viewer.updateMesh(model.toMesh(grid, {min:[minX,minY,minZ],max:[maxX,maxZ,maxZ]}));
+		
+		});
 
-<h3>Support or Contact</h3>
+	})
+</script>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact support@github.com and we’ll help you sort it out.</p>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/garyhodgson">garyhodgson</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
-    </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
-  </body>
+</head>
+<body>
+
+
+<textarea id="editor1" class="editor"></textarea>
+<div id="viewer1" class="viewer"></div>
+
+<div id="controls1" class="controls">
+
+	<input type="button" value="Polygonise" id="polygonise" />
+	<br>
+	
+	Grid: <input id="grid" type="number" value="30"/>
+	<br>
+	Isosurface:<input id="isosurface" type="number" value="0"/><br>
+		
+	<fieldset id="boundaryBox">
+		<legend>Boundary Box</legend>
+		Min: 
+		x <input id="boundaryBoxMinX" type="number" value="-10"/>
+		y <input id="boundaryBoxMinY" type="number" value="-10"/>
+		z <input id="boundaryBoxMinZ" type="number" value="-10"/>
+		<br>
+		Max: 
+		x <input id="boundaryBoxMaxX" type="number" value="15"/>
+		y <input id="boundaryBoxMaxY" type="number" value="15"/>
+		z <input id="boundaryBoxMaxZ" type="number" value="15"/>
+		<br>
+	</fieldset>
+
+	
+</div>
+
+<script>
+	
+		var coords = [];
+
+		var a = CSG.sphere({center:[3,3,3], radius:2});
+		var b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});
+
+		function sphereBlockUnion(){
+			return  b.union(a);
+		}
+		
+		function sphereBlockIntersect(){
+			return  b.intersect(a);
+		}
+
+		function sphereBlockSubtract1(){
+			return  b.subtract(a);
+		}
+
+		function sphereBlockSubtract2(){
+			return  a.subtract(b);
+		}
+
+		var microstructureExample = function(){
+
+			var lattice = new CSG({}, {}, function(coords) {
+
+				var l = 0.075;
+				var p = 0;
+				var q = 3;
+
+				var sx = Math.sin((q * coords[0]) + p) - l;
+				var sy = Math.sin((q * coords[1]) + p) - l;
+				var sz = Math.sin((q * coords[2]) + p) - l;
+
+				var rx = sy & sz;
+				var ry = sx & sz;
+				var rz = sx & sy;
+
+				return rx | ry | rz;
+			});
+			
+
+			var sphere = CSG.sphere({center:[0,0,0],radius:10});
+
+			var spherehollow = CSG.sphere({center:[0,0,0],radius:9});
+
+			var shell = sphere.subtract(spherehollow);
+
+			var block = CSG.block({vertex:[-10,-10,0],dx:20,dy:20,dz:10});
+
+			var support = lattice.intersect(spherehollow);
+
+			var supportshell = shell.union(support)
+
+			return supportshell.subtract(block);
+		}();
+		
+		var model = CSG.torusX({center:[2,2,2], R:2, r0:1});
+		//CSG.gyroid({center:[2,2,2], t:0.1});
+		//sphereBlockUnion();
+		//CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});
+		
+		var grid = 30;
+
+		Viewer.lineOverlay = true;
+		//addViewer(new Viewer(model, 800, 600, 30, grid, {min:[-10,-10,-10],max:[15,15,15]}), 'viewer1');
+
+</script>
+
+
+</body>
 </html>
