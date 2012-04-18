@@ -19,7 +19,6 @@ CSG.prototype = {
 		var mesh = new GL.Mesh({ normals: true, colors: true });
 		var indexer = new GL.Indexer();
 
-		// hard coded values for now...
 		var polygonizer = new CSG.Polygonizer(
 				boundingBox.min, 
 				boundingBox.max,
