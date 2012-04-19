@@ -3,6 +3,10 @@
 	<title>FRep CSG</title>
 
 	<script src="jquery.js"></script>
+	<script src="jquery.mousewheel.js"></script>
+	<script src="modernizr.min.js"></script>
+	<script src="sisyphus.min.js"></script>
+	<script src="date.format.js"></script>
 	<script src="lightgl.js"></script>
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
@@ -10,23 +14,35 @@
 	<style>
 		.editor { width: 39%; height: 600px; }
 		.viewer { float: right; width: 60%; height: 600px; background: #EEE;}
-		.controls { width: 99%; height: 200px; padding: 5px; margin: 2px; border:1px dashed grey; }
+		.controls { float: left; width: 38%; height: 200px; padding: 5px; margin-top: 5px; border:1px dashed grey; }
+		.info {  width: 60%; height: 200px; padding: 5px; margin: 5px; }
 		input[type=number] { width: 60px;}
 		#grid input { width: 30px;}
 		canvas { cursor: move; }
 	</style>
 
 	<script>
-		$(document).ready(function() {
-			//$('#editor1').val("\nreturn CSG.sphere({center:[0,0,0],radius:5});\n")
+		function notify(msg){
+			var d = new Date();
+			//$('#info1').prepend(d.format('h:MM:ss > ') + msg+"\n");
+			$('#info1').append(msg);
+		}
 
-			new Viewer(800, 600, 30, 'viewer1')
+		$(document).ready(function() {
+
+			var model;
+			
+			new Viewer(800, 600, 30, 'viewer1');
+
+			if (localStorage.getItem("lastFRepEdit") != undefined){
+				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
+			}
 
 			$('#polygonise').click(function(e){			
 				$('#notice').html("Working...");
 				setTimeout(function(){
 					var f = new Function('', $('#editor1').val());
-					var model = f();
+					model = f();
 
 					var grid = parseFloat($('#grid').val());
 					var minX = parseFloat($('#boundaryBoxMinX').val());
@@ -41,6 +57,30 @@
 					$('#notice').html("Done.");
 					setTimeout(function(){$('#notice').html("")},2000);
 				},100);				
+			});
+
+			$('#editor1').live('keyup blur', function(){
+				localStorage.setItem("lastFRepEdit", $(this).val());
+			});
+
+			$('#lineOverlay').change(function(){
+				Viewer.lineOverlay = ($(this).attr('checked') == 'checked');
+			});
+			$('#lineOverlay').change();
+
+			$('#controlsForm').sisyphus();
+
+			$('#stl').click(function(){
+				if (model == undefined || ! (model instanceof CSG)){
+					notify("Model not yet created. Polygonise!")
+				} else {
+					notify("Generating STL...")
+					model.toStl();
+				}				
+			});
+
+			$('#clear').click(function(){
+				$('#info1').html('')
 			});
 
 		});
@@ -66,30 +106,41 @@ return  b.union(a);
 //return CSG.gyroid({center:[2,2,2], t:0.1});
 
 //return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});
-</textarea>
+	</textarea>
 	<div id="viewer1" class="viewer"></div>
 
-	<div id="controls1" class="controls">
+	<br clear="both">
 
-		<input type="button" value="Polygonise" id="polygonise" />&nbsp;<span id="notice"></span>
-		<br>
-		
-		Grid: <input id="grid" type="number" value="40"/>&nbsp;Isosurface:<input id="isosurface" type="number" value="0.0"/><br>
+	<div id="controls1" class="controls">
+		<form id="controlsForm">
+
+			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />&nbsp;<input type="button" value="STL" id="stl" name="stl" />&nbsp;<span id="notice"></span>
+			<br>
 			
-		<fieldset id="boundaryBox">
-			<legend>Boundary Box</legend>
-			Min: 
-			x <input id="boundaryBoxMinX" type="number" value="-10"/>
-			y <input id="boundaryBoxMinY" type="number" value="-10"/>
-			z <input id="boundaryBoxMinZ" type="number" value="-10"/>
+			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface:<input class="setting" id="isosurface" name="isosurface" type="number" value="0.0"/><br>
+				
+			<fieldset id="boundaryBox">
+				<legend>Boundary Box</legend>
+				Min: 
+				x <input class="setting" id="boundaryBoxMinX" name="boundaryBoxMinX" type="number" value="-10"/>
+				y <input class="setting" id="boundaryBoxMinY" name="boundaryBoxMinY" type="number" value="-10"/>
+				z <input class="setting" id="boundaryBoxMinZ" name="boundaryBoxMinZ" type="number" value="-10"/>
+				<br>
+				Max: 
+				x <input class="setting" id="boundaryBoxMaxX" name="boundaryBoxMaxX" type="number" value="15"/>
+				y <input class="setting" id="boundaryBoxMaxY" name="boundaryBoxMaxY" type="number" value="15"/>
+				z <input class="setting" id="boundaryBoxMaxZ" name="boundaryBoxMaxZ" type="number" value="15"/>
+				<br>
+			</fieldset>
+
 			<br>
-			Max: 
-			x <input id="boundaryBoxMaxX" type="number" value="15"/>
-			y <input id="boundaryBoxMaxY" type="number" value="15"/>
-			z <input id="boundaryBoxMaxZ" type="number" value="15"/>
-			<br>
-		</fieldset>
+			LineOverlay: <input class="setting" id="lineOverlay" name="lineOverlay" type="checkbox"/>
+		</form>
 	</div>
+
+<textarea id="info1" class="info" readonly></textarea>
+<br>
+<input type="button" value="Clear" id="clear" name="clear" />
 
 	<script>
 			var microstructureExample = function(){

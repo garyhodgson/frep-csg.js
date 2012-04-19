@@ -5,6 +5,9 @@ CSG = function(p, a, f) {
 	this.func = f;
 	this.params = p;
 	this.attrs = a;
+	this.vertices = new Array();
+	this.normals = new Array();
+	this.indices = new Array();
 }
 
 
@@ -19,6 +22,10 @@ CSG.prototype = {
 		var mesh = new GL.Mesh({ normals: true, colors: true });
 		var indexer = new GL.Indexer();
 
+		this.vertices = new Array();
+		this.normals = new Array();
+		this.indices = new Array();
+
 		var polygonizer = new CSG.Polygonizer(
 				boundingBox.min, 
 				boundingBox.max,
@@ -28,32 +35,99 @@ CSG.prototype = {
 				this.params,
 				this.attrs);
 
-		var vertices = new Array();
-		var normals = new Array();
-		var indices = new Array();
-		polygonizer.polygonize(vertices, normals, indices);
+		polygonizer.polygonize(this.vertices, this.normals, this.indices);
 
-		console.log("vertices",vertices.length, "normals", normals.length, "indices", indices.length);
+		notify("Vertices: "+this.vertices.length+ "; Normals: "+ this.normals.length+ "; Indices: "+ this.indices.length+";");
 
-		for (var i = 2; i < indices.length; i+=3) {
-			mesh.triangles.push([indices[i-2], indices[i - 1], indices[i]]);
+		for (var i = 2; i < this.indices.length; i+=3) {
+			mesh.triangles.push([this.indices[i-2], this.indices[i - 1], this.indices[i]]);
 		}
 
-		mesh.vertices = vertices;
-		mesh.normals = normals;
-		mesh.colors = vertices.map(function(v){return [0.85,0.85,0.85,0.85];});
+		mesh.vertices = this.vertices;
+		mesh.normals = this.normals;
+		mesh.colors = this.vertices.map(function(v){return [0.85,0.85,0.85,0.85];});
 		mesh.computeWireframe();
 
 		return mesh;
 	},
+	toStl: function(){
+		if (this.vertices == undefined || this.vertices.length == 0){
+			notify("No vertices found, Polygonise!")
+			return;
+		}
 
+		var X = 0;
+		var Y = 1;
+		var Z = 2;
+		
+		var CB = new Array(3);
+		var CA = new Array(3);
+		var vec_length = 1;
+
+		// Normal Vector for a facet
+		var nx, ny, nz;
+
+		Point3D = function(x,y,z){
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+
+		notify("solid\n");
+
+	    for (var i = 0; i < this.indices.length/3; i++) {
+
+console.log("stl: "+i)
+
+			// Calculate a normal vector from the cross product
+			CB[X] = this.vertices[this.indices[3*i + 1]][0] - this.vertices[this.indices[3*i + 2]][0];
+			CB[Y] = this.vertices[this.indices[3*i + 1]][1] - this.vertices[this.indices[3*i + 2]][1];
+			CB[Z] = this.vertices[this.indices[3*i + 1]][2] - this.vertices[this.indices[3*i + 2]][2];
+			CA[X] = this.vertices[this.indices[3*i]][0] - this.vertices[this.indices[3*i + 2]][0];
+			CA[Y] = this.vertices[this.indices[3*i]][1] - this.vertices[this.indices[3*i + 2]][1];
+			CA[Z] = this.vertices[this.indices[3*i]][2] - this.vertices[this.indices[3*i + 2]][2];
+			nx = CB[Y]*CA[Z] - CB[Z]*CA[Y];
+			ny = CB[Z]*CA[X] - CB[X]*CA[Z];
+			nz = CB[X]*CA[Y] - CB[Y]*CA[X];
+			
+			// Normalize the calculated normal vector
+			vec_length = Math.sqrt(nx*nx + ny*ny + nz*nz);
+			nx = nx / vec_length;
+			ny = ny / vec_length;
+			nz = nz / vec_length;
+			
+			notify(" facet normal " + nx + " " + ny + " " + nz + "\n");
+			notify("  outer loop" + "\n"); 
+			notify("   vertex ");
+			notify(this.vertices[this.indices[3*i]][0] + " ");
+			notify(this.vertices[this.indices[3*i]][1] + " ");
+			notify(this.vertices[this.indices[3*i]][2] + "\n");
+			notify("   vertex ");
+			notify(this.vertices[this.indices[3*i + 1]][0] + " ");
+			notify(this.vertices[this.indices[3*i + 1]][1] + " ");
+			notify(this.vertices[this.indices[3*i + 1]][2] + "\n");
+			notify("   vertex ");
+			notify(this.vertices[this.indices[3*i + 2]][0] + " ");
+			notify(this.vertices[this.indices[3*i + 2]][1] + " ");
+			notify(this.vertices[this.indices[3*i + 2]][2] + "\n");
+			notify("  endloop" + "\n"); 
+			notify(" endfacet" + "\n"); 
+	    }
+	    
+	    notify("endsolid\n");
+
+
+
+
+	},
 	union: function(otherCsg){
 		var csg = new CSG();
 		var that = this;
 		csg.func = function(coords) {
 			var result1 = that.func(coords, that.params);
 			var result2 = otherCsg.func(coords, otherCsg.params);
-			return (1/(1+ALPHA))*(result2 + result1 + Math.sqrt(Math.abs(result2*result2 + result1*result1-2*ALPHA*result1*result2)));
+			//return (1/(1+ALPHA))*(result2 + result1 + Math.sqrt(Math.abs(result2*result2 + result1*result1-2*ALPHA*result1*result2)));
+			return Math.max(result2, result1);
 		};
 		return csg;
 	},
@@ -202,7 +276,7 @@ CSG.Polygonizer.prototype = {
 			
 			this.sample(upperPlane, zUpper);
 
-			console.log("z",k);
+			console.log("z: "+k);
 
 			for (var j = 0; j < this.yDiv; j++) {
 				var yLower = this.yMin + j * this.dy;

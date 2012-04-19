@@ -34,6 +34,8 @@ function Viewer(width, height, depth, id) {
   gl.enable(gl.CULL_FACE);
   gl.polygonOffset(1, 1);
 
+  var that = this;
+
   // Black shader for wireframe
   this.blackShader = new GL.Shader('\
     void main() {\
@@ -69,28 +71,31 @@ function Viewer(width, height, depth, id) {
     }\
   ');
 
-  document.onmousewheel = function(e) {
-    var amount = e.wheelDelta/80;
-    depth -= amount;
-    viewer.gl.ondraw();
-  };
-  gl.onmousemove = function(e) {
-
-    if (e.dragging) {
-      if (e.shiftKey){
-        xPos += e.deltaX/3;
-        yPos -= e.deltaY/3;
-      } else {
-        angleY += e.deltaX * 2;
-        angleX += e.deltaY * 2;
-        angleX = Math.max(-90, Math.min(90, angleX));
-      }
-
+  $('#viewer1').bind('mousewheel', function(event, delta, deltaX, deltaY) {
+    if (that.hasMesh()){
+      depth += delta;
       viewer.gl.ondraw();
+    }
+  });
+
+  gl.onmousemove = function(e) {
+    if (that.hasMesh()){
+      if (e.dragging) {
+        if (e.shiftKey){
+          xPos += e.deltaX/3;
+          yPos -= e.deltaY/3;
+        } else {
+          angleY += e.deltaX * 2;
+          angleX += e.deltaY * 2;
+          angleX = Math.max(-90, Math.min(90, angleX));
+        }
+
+        viewer.gl.ondraw();
+      }
     }
   };
 
-  var that = this;
+  
   gl.ondraw = function() {
     gl.makeCurrent();
 
@@ -114,6 +119,10 @@ function Viewer(width, height, depth, id) {
   this.updateMesh = function(m){
     this.mesh = m;
     gl.ondraw();
+  }
+
+  this.hasMesh = function(){
+    return this.mesh != undefined; 
   }
 
   $('#'+id).append(this.gl.canvas);
