@@ -75,6 +75,7 @@ function Viewer(width, height, depth, id) {
     if (that.hasMesh()){
       depth += delta;
       viewer.gl.ondraw();
+      event.preventDefault();
     }
   });
 
