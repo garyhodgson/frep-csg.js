@@ -24,6 +24,10 @@
 			}
 		}
 
+		function canSaveStl(){
+			return (window.webkitRequestFileSystem != undefined);
+		}
+
 		function working(){
 			$('#spinner').show();
 		}
@@ -54,10 +58,19 @@
 		}
 
 		$(document).ready(function() {
+			if (!Modernizr.webgl){
+				notify("This app needs webGL - Google Chrome would be a good choice of browser.")
+				return 
+			}
+			if (!canSaveStl()){
+				notify("This app requires webkitRequestFileSystem in order to save STL files. Google Chrome has this feature.")
+				$('#stl').attr("disabled", true);
+				$('#stl').attr("title", "This app requires webkitRequestFileSystem in order to save STL files.");
+			}
 
 			var model;
 			
-			new Viewer(800, 600, 30, 'viewer1');
+			new Viewer(800, 600, 120, 'viewer1');
 
 			if (localStorage.getItem("lastFRepEdit") != undefined){
 				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
@@ -96,8 +109,11 @@
 				if (model == undefined || ! (model instanceof CSG)){
 					notify("Model not yet created. Polygonise!")
 				} else {
-					notify("Generating STL...")
-					model.toStl();
+					notify("Generating STL...");
+					working();
+					setTimeout(function(){
+						model.toStl();
+					},100);
 				}				
 			});
 

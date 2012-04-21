@@ -24,7 +24,7 @@ function Viewer(width, height, depth, id) {
   gl.viewport(0, 0, width, height);
   gl.matrixMode(gl.PROJECTION);
   gl.loadIdentity();
-  gl.perspective(45, width / height, 0.1, 100);
+  gl.perspective(45, width / height, 0.5, 1000);
   gl.matrixMode(gl.MODELVIEW);
 
   // Set up WebGL state
@@ -73,7 +73,7 @@ function Viewer(width, height, depth, id) {
 
   $('#viewer1').bind('mousewheel', function(event, delta, deltaX, deltaY) {
     if (that.hasMesh()){
-      depth -= delta;
+      depth -= delta*10;
       viewer.gl.ondraw();
       event.preventDefault();
     }

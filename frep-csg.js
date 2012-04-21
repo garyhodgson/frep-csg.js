@@ -1,5 +1,5 @@
 var ALPHA = 0.0;
-var MAX_BOUNDING_BOX = {min:{x:-100.0,y:-100.0,z:-100.0},max:{x:100.0,y:100.0,z:100.0}};
+var MAX_BOUNDING_BOX = {min:{x:-500.0,y:-500.0,z:-500.0},max:{x:500.0,y:500.0,z:500.0}};
 var BOUNDING_BOX_ACCURACY = 0.5;
 var BOUNDING_BOX_PRECISION = 2;
 
@@ -75,12 +75,10 @@ CSG.prototype = {
 			this.z = z;
 		}
 
-		notify("solid\n");
+		var stlOutput = new Array()
+		stlOutput.push("solid\n");
 
 	    for (var i = 0; i < this.indices.length/3; i++) {
-
-console.log("stl: "+i)
-
 			// Calculate a normal vector from the cross product
 			CB[X] = this.vertices[this.indices[3*i + 1]][0] - this.vertices[this.indices[3*i + 2]][0];
 			CB[Y] = this.vertices[this.indices[3*i + 1]][1] - this.vertices[this.indices[3*i + 2]][1];
@@ -98,25 +96,51 @@ console.log("stl: "+i)
 			ny = ny / vec_length;
 			nz = nz / vec_length;
 			
-			notify(" facet normal " + nx + " " + ny + " " + nz + "\n");
-			notify("  outer loop" + "\n"); 
-			notify("   vertex ");
-			notify(this.vertices[this.indices[3*i]][0] + " ");
-			notify(this.vertices[this.indices[3*i]][1] + " ");
-			notify(this.vertices[this.indices[3*i]][2] + "\n");
-			notify("   vertex ");
-			notify(this.vertices[this.indices[3*i + 1]][0] + " ");
-			notify(this.vertices[this.indices[3*i + 1]][1] + " ");
-			notify(this.vertices[this.indices[3*i + 1]][2] + "\n");
-			notify("   vertex ");
-			notify(this.vertices[this.indices[3*i + 2]][0] + " ");
-			notify(this.vertices[this.indices[3*i + 2]][1] + " ");
-			notify(this.vertices[this.indices[3*i + 2]][2] + "\n");
-			notify("  endloop" + "\n"); 
-			notify(" endfacet" + "\n"); 
+			stlOutput.push(" facet normal " + nx + " " + ny + " " + nz + "\n");
+			stlOutput.push("  outer loop" + "\n"); 
+			stlOutput.push("   vertex ");
+			stlOutput.push(this.vertices[this.indices[3*i]][0] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i]][1] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i]][2] + "\n");
+			stlOutput.push("   vertex ");
+			stlOutput.push(this.vertices[this.indices[3*i + 1]][0] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i + 1]][1] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i + 1]][2] + "\n");
+			stlOutput.push("   vertex ");
+			stlOutput.push(this.vertices[this.indices[3*i + 2]][0] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i + 2]][1] + " ");
+			stlOutput.push(this.vertices[this.indices[3*i + 2]][2] + "\n");
+			stlOutput.push("  endloop" + "\n"); 
+			stlOutput.push(" endfacet" + "\n"); 
 	    }
 	    
-	    notify("endsolid\n");
+	    stlOutput.push("endsolid\n");
+
+	    window.webkitRequestFileSystem(window.TEMPORARY, 1024*1024, function(fs) {
+	        fs.root.getFile('out.stl', {create: true}, function(fileEntry) {
+	            fileEntry.createWriter(function(fileWriter) {
+					fileWriter.onwriteend = function(e) {
+						notify('STL write completed.');
+						notworking();
+						// navigate to file, will download
+	                    location.href = fileEntry.toURL();
+	                };
+
+					fileWriter.onerror = function(e) {
+						console.log('STL write failed: ' + e.toString());
+						notworking();
+					};
+	    
+	                var builder = new WebKitBlobBuilder();
+	                for (var i = 0; i < stlOutput.length; i++){
+	                	builder.append(stlOutput[i]);
+	                }
+
+      				fileWriter.write(builder.getBlob());
+	            }, function() {});
+	        }, function() {});
+	    }, function() {});
+
 	},
 
 
