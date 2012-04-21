@@ -131,14 +131,17 @@
 					notify("Model not yet created. Polygonise!")
 				} else {
 					working();
-					var bb = model.findBoundingBox(getBoundingBox());
+					setTimeout(function(){
+						var bb = model.findBoundingBox(getBoundingBox());
 
-					if (bb != undefined){
-						setBoundingBox(bb);
-					} else {
-						notify("Unable to determine Bounding Box.");
-					}
-					notworking();
+						if (bb != undefined){
+							setBoundingBox(bb);
+						} else {
+							notify("Unable to determine Bounding Box.");
+						}
+						notworking();
+					}, 100);
+					
 				}
 			});
 

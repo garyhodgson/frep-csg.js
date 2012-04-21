@@ -1,7 +1,6 @@
-
 var ALPHA = 0.0;
-var MAX_BOUNDING_BOX = {min:{x:-100.0,y:-100.0,z:-100.0},max:{x:100.0,y:100.0,z:100.0}}
-var BOUNDING_BOX_ACCURACY = 0.5
+var MAX_BOUNDING_BOX = {min:{x:-100.0,y:-100.0,z:-100.0},max:{x:100.0,y:100.0,z:100.0}};
+var BOUNDING_BOX_ACCURACY = 0.5;
 var BOUNDING_BOX_PRECISION = 2;
 
 CSG = function(p, a, f) {
@@ -12,7 +11,6 @@ CSG = function(p, a, f) {
 	this.normals = new Array();
 	this.indices = new Array();
 }
-
 
 CSG.prototype = {
 
@@ -53,6 +51,7 @@ CSG.prototype = {
 
 		return mesh;
 	},
+	
 	toStl: function(){
 		if (this.vertices == undefined || this.vertices.length == 0){
 			notify("No vertices found, Polygonise!")
@@ -147,7 +146,7 @@ console.log("stl: "+i)
 		var minX = center[0]
 		while (minX >= MAX_BOUNDING_BOX.min.x && f([minX,center[1],center[2]]) >=0) minX = dec(minX);
 		var maxX = center[0]
-		while (maxX <= MAX_BOUNDING_BOX.max.x && f([maxX,center[1],center[2]]) >=0) maxX = inc(maxX)
+		while (maxX <= MAX_BOUNDING_BOX.max.x && f([maxX,center[1],center[2]]) >=0) maxX = inc(maxX);
 
 		var minY = center[1]
 		while (minY >= MAX_BOUNDING_BOX.min.y && f([center[0],minY,center[2]]) >=0) minY = dec(minY);
@@ -160,15 +159,10 @@ console.log("stl: "+i)
 		while (maxZ <= MAX_BOUNDING_BOX.max.z && f([center[0],center[1],maxZ]) >=0) maxZ = inc(maxZ);
 
 
-
-		console.log(minX,minY,minZ);
-		console.log(maxX,maxY,maxZ);
-		
-
 		// refine max
 		function refineMaxLimit(max, upperLimit, lower1, upper1, lower2, upper2, funcMap){
 			var searching = true;
-			while (max <= upperLimit && searching) {
+			while (searching) {
 				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
 				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
 					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
@@ -179,24 +173,27 @@ console.log("stl: "+i)
 						}
 					}
 				}
+				if (max >= upperLimit){
+					searching = false;	
+				}
 			}
 			return max;
 		}
 
 
 		var maxZ = refineMaxLimit(maxZ, MAX_BOUNDING_BOX.max.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
-		console.log("maxZ2: " + maxZ);
+		console.log("maxZ: " + maxZ);
 
 		var maxX = refineMaxLimit(maxX, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
-		console.log("maxX2: " + maxX);
+		console.log("maxX: " + maxX);
 
 		var maxY = refineMaxLimit(maxY, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
-		console.log("maxY2: " + maxY);
+		console.log("maxY: " + maxY);
 
 		// refine min
 		function refineMinLimit(min, lowerLimit, lower1, upper1, lower2, upper2, funcMap){
 			var searching = true;
-			while (min >= lowerLimit && searching) {
+			while (searching) {
 				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
 				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
 					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
@@ -207,18 +204,19 @@ console.log("stl: "+i)
 						}
 					}
 				}
+				if (min <= lowerLimit){
+					searching = false;	
+				}
 			}
 			return min;
 		}
 
 		var minZ = refineMinLimit(minZ, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
-		console.log("minZ2: " + minZ);
+		console.log("minZ: " + minZ);
 		var minX = refineMinLimit(minX, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
-		console.log("minX2: " + minX);
+		console.log("minX: " + minX);
 		var minY = refineMinLimit(minY, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
-		console.log("minY2: " + minY);
-
-
+		console.log("minY: " + minY);
 
 		console.log(minX,minY,minZ);
 		console.log(maxX,maxY,maxZ);
@@ -333,7 +331,6 @@ CSG.Polygonizer.prototype = {
 			}
 		}
 	},
-
 	polygonize: function(vertices, normals, indices) {
 
 		var eps = (this.isovalue == 0.0) ? 1.0E-5 : this.isovalue * 1.0E-5;
