@@ -73,7 +73,7 @@ function Viewer(width, height, depth, id) {
 
   $('#viewer1').bind('mousewheel', function(event, delta, deltaX, deltaY) {
     if (that.hasMesh()){
-      depth += delta;
+      depth -= delta;
       viewer.gl.ondraw();
       event.preventDefault();
     }
@@ -95,7 +95,6 @@ function Viewer(width, height, depth, id) {
       }
     }
   };
-
   
   gl.ondraw = function() {
     gl.makeCurrent();

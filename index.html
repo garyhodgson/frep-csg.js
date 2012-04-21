@@ -2,30 +2,55 @@
 <head>
 	<title>FRep CSG</title>
 
-	<script src="jquery.js"></script>
-	<script src="jquery.mousewheel.js"></script>
-	<script src="modernizr.min.js"></script>
-	<script src="sisyphus.min.js"></script>
-	<script src="date.format.js"></script>
-	<script src="lightgl.js"></script>
+	<script src="js/jquery.js"></script>
+	<script src="js/jquery.mousewheel.js"></script>
+	<script src="js/modernizr.min.js"></script>
+	<script src="js/sisyphus.min.js"></script>
+	<script src="js/date.format.js"></script>
+	<script src="js/lightgl.js"></script>
+
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
 
-	<style>
-		.editor { width: 39%; height: 600px; }
-		.viewer { float: right; width: 60%; height: 600px; background: #EEE;}
-		.controls { float: left; width: 38%; height: 200px; padding: 5px; margin-top: 5px; border:1px dashed grey; }
-		.info {  width: 60%; height: 200px; padding: 5px; margin: 5px; }
-		input[type=number] { width: 60px;}
-		#grid input { width: 30px;}
-		canvas { cursor: move; }
-	</style>
+	<link rel="stylesheet" href="css/frep-csg.css" type="text/css" charset="utf-8" />
 
 	<script>
-		function notify(msg){
+		function notify(msg, append){
 			var d = new Date();
-			//$('#info1').prepend(d.format('h:MM:ss > ') + msg+"\n");
-			$('#info1').append(msg);
+			if (append){
+				$('#info1').append(msg);	
+			} else {
+				$('#info1').prepend(d.format('h:MM:ss > ') + msg+"\n");	
+			}
+		}
+
+		function working(){
+			$('#spinner').show();
+		}
+
+		function notworking(){
+			$('#spinner').hide();
+		}
+
+		var defaultEditorContent = "var a = CSG.sphere({center:[3,3,3], radius:2});\nvar b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});\nreturn  b.union(a);\n\n//return  b.intersect(a);\n\n//return  b.subtract(a);\n\n//return  a.subtract(b);\n\n//return CSG.torusX({center:[2,2,2], R:2, r0:1});\n\n//return CSG.gyroid({center:[2,2,2], t:0.1});\n\n//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});";
+
+		function getBoundingBox(){
+			var minX = parseFloat($('#boundaryBoxMinX').val());
+			var minY = parseFloat($('#boundaryBoxMinY').val());
+			var minZ = parseFloat($('#boundaryBoxMinZ').val());
+			var maxX = parseFloat($('#boundaryBoxMaxX').val());
+			var maxY = parseFloat($('#boundaryBoxMaxY').val());
+			var maxZ = parseFloat($('#boundaryBoxMaxZ').val());
+			return {min:{x:minX,y:minY,z:minZ},max:{x:maxX,y:maxY,z:maxZ}};
+		}
+
+		function setBoundingBox(bb){
+			$('#boundaryBoxMinX').val(bb.min.x).change();
+			$('#boundaryBoxMinY').val(bb.min.y).change();
+			$('#boundaryBoxMinZ').val(bb.min.z).change();
+			$('#boundaryBoxMaxX').val(bb.max.x).change();
+			$('#boundaryBoxMaxY').val(bb.max.y).change();
+			$('#boundaryBoxMaxZ').val(bb.max.z).change();
 		}
 
 		$(document).ready(function() {
@@ -36,26 +61,22 @@
 
 			if (localStorage.getItem("lastFRepEdit") != undefined){
 				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
+			} else {
+				$('#editor1').val(defaultEditorContent);
 			}
 
 			$('#polygonise').click(function(e){			
-				$('#notice').html("Working...");
+				working();
 				setTimeout(function(){
 					var f = new Function('', $('#editor1').val());
 					model = f();
 
 					var grid = parseFloat($('#grid').val());
-					var minX = parseFloat($('#boundaryBoxMinX').val());
-					var minY = parseFloat($('#boundaryBoxMinY').val());
-					var minZ = parseFloat($('#boundaryBoxMinZ').val());
-					var maxX = parseFloat($('#boundaryBoxMaxX').val());
-					var maxY = parseFloat($('#boundaryBoxMaxY').val());
-					var maxZ = parseFloat($('#boundaryBoxMaxZ').val());
+					
 					var isosurface = parseFloat($('#isosurface').val());
 				
-					viewer.updateMesh(model.toMesh(grid, {min:[minX,minY,minZ],max:[maxX,maxZ,maxZ]}, isosurface));
-					$('#notice').html("Done.");
-					setTimeout(function(){$('#notice').html("")},2000);
+					viewer.updateMesh(model.toMesh(grid, getBoundingBox(), isosurface));
+					notworking();
 				},100);				
 			});
 
@@ -63,12 +84,13 @@
 				localStorage.setItem("lastFRepEdit", $(this).val());
 			});
 
+			$('#controlsForm').sisyphus({excludeFields: $('.sisyphusignore')});
+
 			$('#lineOverlay').change(function(){
 				Viewer.lineOverlay = ($(this).attr('checked') == 'checked');
 			});
 			$('#lineOverlay').change();
 
-			$('#controlsForm').sisyphus();
 
 			$('#stl').click(function(){
 				if (model == undefined || ! (model instanceof CSG)){
@@ -83,6 +105,46 @@
 				$('#info1').html('')
 			});
 
+			$('#boundaryBoxMinAll').blur(function(){
+				var v = $(this).val();
+				$('#boundaryBoxMinX').val(v).change();
+				$('#boundaryBoxMinY').val(v).change();
+				$('#boundaryBoxMinZ').val(v).change();
+			});
+
+			$('#boundaryBoxMaxAll').blur(function(){
+				var v = $(this).val();
+				$('#boundaryBoxMaxX').val(v).change();
+				$('#boundaryBoxMaxY').val(v).change();
+				$('#boundaryBoxMaxZ').val(v).change();
+			});
+
+			$('#resetEditor').click(function(){
+				if (confirm("Reset Editor?")){
+					$('#editor1').val(defaultEditorContent);
+					localStorage.setItem("lastFRepEdit",defaultEditorContent);
+				}
+			});
+
+			$('#findBoundingBox').click(function(){
+				if (model == undefined || ! (model instanceof CSG)){
+					notify("Model not yet created. Polygonise!")
+				} else {
+					working();
+					var bb = model.findBoundingBox(getBoundingBox());
+
+					if (bb != undefined){
+						setBoundingBox(bb);
+					} else {
+						notify("Unable to determine Bounding Box.");
+					}
+					notworking();
+				}
+			});
+
+			if ($('#polygoniseOnLoad').attr('checked')) {
+				$('#polygonise').click();
+			}
 		});
 	</script>
 </head>
@@ -90,22 +152,6 @@
 
 
 	<textarea id="editor1" class="editor">
-var a = CSG.sphere({center:[3,3,3], radius:2});
-var b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});
-
-return  b.union(a);
-
-//return  b.intersect(a);
-
-//return  b.subtract(a);
-
-//return  a.subtract(b);
-
-//return CSG.torusX({center:[2,2,2], R:2, r0:1});
-
-//return CSG.gyroid({center:[2,2,2], t:0.1});
-
-//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});
 	</textarea>
 	<div id="viewer1" class="viewer"></div>
 
@@ -114,70 +160,40 @@ return  b.union(a);
 	<div id="controls1" class="controls">
 		<form id="controlsForm">
 
-			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />&nbsp;<input type="button" value="STL" id="stl" name="stl" />&nbsp;<span id="notice"></span>
+			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />
+			&nbsp;<input type="button" value="STL" id="stl" name="stl" />
+			&nbsp;<input type="button" value="Reset" id="resetEditor" name="resetEditor" />
+			&nbsp;<img id="spinner" src="images/spinner.gif">
 			<br>
 			
-			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface:<input class="setting" id="isosurface" name="isosurface" type="number" value="0.0"/><br>
+			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface:<input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1"/><br>
 				
 			<fieldset id="boundaryBox">
 				<legend>Boundary Box</legend>
 				Min: 
-				x <input class="setting" id="boundaryBoxMinX" name="boundaryBoxMinX" type="number" value="-10"/>
-				y <input class="setting" id="boundaryBoxMinY" name="boundaryBoxMinY" type="number" value="-10"/>
-				z <input class="setting" id="boundaryBoxMinZ" name="boundaryBoxMinZ" type="number" value="-10"/>
+				x <input class="setting" id="boundaryBoxMinX" name="boundaryBoxMinX" type="number" value="-10" step="0.5"/>
+				y <input class="setting" id="boundaryBoxMinY" name="boundaryBoxMinY" type="number" value="-10" step="0.5"/>
+				z <input class="setting" id="boundaryBoxMinZ" name="boundaryBoxMinZ" type="number" value="-10" step="0.5"/>
+				&nbsp;(All: <input id="boundaryBoxMinAll" name="boundaryBoxMinAll" class="sisyphusignore" type="number" value="" step="0.5"/>)
 				<br>
 				Max: 
-				x <input class="setting" id="boundaryBoxMaxX" name="boundaryBoxMaxX" type="number" value="15"/>
-				y <input class="setting" id="boundaryBoxMaxY" name="boundaryBoxMaxY" type="number" value="15"/>
-				z <input class="setting" id="boundaryBoxMaxZ" name="boundaryBoxMaxZ" type="number" value="15"/>
+				x <input class="setting" id="boundaryBoxMaxX" name="boundaryBoxMaxX" type="number" value="15" step="0.5"/>
+				y <input class="setting" id="boundaryBoxMaxY" name="boundaryBoxMaxY" type="number" value="15" step="0.5"/>
+				z <input class="setting" id="boundaryBoxMaxZ" name="boundaryBoxMaxZ" type="number" value="15" step="0.5"/>
+				&nbsp;(All: <input id="boundaryBoxMaxAll" name="boundaryBoxMaxAll" class="sisyphusignore" type="number" value="" step="0.5"/>)
 				<br>
+				<a href="javascript://" id="findBoundingBox">calculate<a/>
 			</fieldset>
 
 			<br>
 			LineOverlay: <input class="setting" id="lineOverlay" name="lineOverlay" type="checkbox"/>
+			<br>
+			Polygonise on Load: <input class="setting" id="polygoniseOnLoad" name="polygoniseOnLoad" type="checkbox"/>
 		</form>
 	</div>
 
 <textarea id="info1" class="info" readonly></textarea>
 <br>
 <input type="button" value="Clear" id="clear" name="clear" />
-
-	<script>
-			var microstructureExample = function(){
-
-				var lattice = new CSG({}, {}, function(coords) {
-
-					var l = 0.075;
-					var p = 0;
-					var q = 3;
-
-					var sx = Math.sin((q * coords[0]) + p) - l;
-					var sy = Math.sin((q * coords[1]) + p) - l;
-					var sz = Math.sin((q * coords[2]) + p) - l;
-
-					var rx = sy & sz;
-					var ry = sx & sz;
-					var rz = sx & sy;
-
-					return rx | ry | rz;
-				});
-				
-
-				var sphere = CSG.sphere({center:[0,0,0],radius:10});
-
-				var spherehollow = CSG.sphere({center:[0,0,0],radius:9});
-
-				var shell = sphere.subtract(spherehollow);
-
-				var block = CSG.block({vertex:[-10,-10,0],dx:20,dy:20,dz:10});
-
-				var support = lattice.intersect(spherehollow);
-
-				var supportshell = shell.union(support)
-
-				return supportshell.subtract(block);
-			}();
-			
-	</script>
 </body>
 </html>

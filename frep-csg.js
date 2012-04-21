@@ -1,5 +1,8 @@
 
 var ALPHA = 0.0;
+var MAX_BOUNDING_BOX = {min:{x:-100.0,y:-100.0,z:-100.0},max:{x:100.0,y:100.0,z:100.0}}
+var BOUNDING_BOX_ACCURACY = 0.5
+var BOUNDING_BOX_PRECISION = 2;
 
 CSG = function(p, a, f) {
 	this.func = f;
@@ -16,7 +19,7 @@ CSG.prototype = {
 	toMesh: function(g,bb,iso) {
 
 		var grid = g?g:50;
-		var boundingBox = bb?bb:{min:[-1,-1,-1],max:[5,5,5]};
+		var boundingBox = bb?bb:{min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
 		var isosurface = iso?iso:0.0;
 
 		var mesh = new GL.Mesh({ normals: true, colors: true });
@@ -29,7 +32,7 @@ CSG.prototype = {
 		var polygonizer = new CSG.Polygonizer(
 				boundingBox.min, 
 				boundingBox.max,
-				[grid,grid,grid],
+				{x:grid,y:grid,z:grid},
 				isosurface,
 				this.func,
 				this.params,
@@ -115,11 +118,115 @@ console.log("stl: "+i)
 	    }
 	    
 	    notify("endsolid\n");
+	},
+
+
+	findBoundingBox: function(){
+
+		if (!this.func){
+			notify("No function found!");
+			return;
+		}
+
+		var f = this.func;
+		var center = [0,0,0];
+
+		if (this.params && this.params.center) center = this.params.center;
+
+		if (f(center) < 0){
+			notify("No volume found!");
+			return;	
+		}
+		function inc(val){
+			return parseFloat((val+BOUNDING_BOX_ACCURACY).toPrecision(BOUNDING_BOX_PRECISION));
+		}
+		function dec(val){
+			return parseFloat((val-BOUNDING_BOX_ACCURACY).toPrecision(BOUNDING_BOX_PRECISION));
+		}
+
+		var minX = center[0]
+		while (minX >= MAX_BOUNDING_BOX.min.x && f([minX,center[1],center[2]]) >=0) minX = dec(minX);
+		var maxX = center[0]
+		while (maxX <= MAX_BOUNDING_BOX.max.x && f([maxX,center[1],center[2]]) >=0) maxX = inc(maxX)
+
+		var minY = center[1]
+		while (minY >= MAX_BOUNDING_BOX.min.y && f([center[0],minY,center[2]]) >=0) minY = dec(minY);
+		var maxY = center[1]
+		while (maxY <= MAX_BOUNDING_BOX.max.y && f([center[0],maxY,center[2]]) >=0) maxY = inc(maxY);
+
+		var minZ = center[2]
+		while (minZ >= MAX_BOUNDING_BOX.min.z && f([center[0],center[1],minZ]) >=0) minZ = dec(minZ);
+		var maxZ = center[2]
+		while (maxZ <= MAX_BOUNDING_BOX.max.z && f([center[0],center[1],maxZ]) >=0) maxZ = inc(maxZ);
 
 
 
+		console.log(minX,minY,minZ);
+		console.log(maxX,maxY,maxZ);
+		
+
+		// refine max
+		function refineMaxLimit(max, upperLimit, lower1, upper1, lower2, upper2, funcMap){
+			var searching = true;
+			while (max <= upperLimit && searching) {
+				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
+				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
+					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
+						if (funcMap(i,j,max) >=0){
+							max = inc(max);
+						} else {
+							searching = false;
+						}
+					}
+				}
+			}
+			return max;
+		}
+
+
+		var maxZ = refineMaxLimit(maxZ, MAX_BOUNDING_BOX.max.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
+		console.log("maxZ2: " + maxZ);
+
+		var maxX = refineMaxLimit(maxX, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
+		console.log("maxX2: " + maxX);
+
+		var maxY = refineMaxLimit(maxY, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
+		console.log("maxY2: " + maxY);
+
+		// refine min
+		function refineMinLimit(min, lowerLimit, lower1, upper1, lower2, upper2, funcMap){
+			var searching = true;
+			while (min >= lowerLimit && searching) {
+				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
+				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
+					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
+						if (funcMap(i,j,min) >=0){
+							min = dec(min);
+						} else {
+							searching = false;
+						}
+					}
+				}
+			}
+			return min;
+		}
+
+		var minZ = refineMinLimit(minZ, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
+		console.log("minZ2: " + minZ);
+		var minX = refineMinLimit(minX, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
+		console.log("minX2: " + minX);
+		var minY = refineMinLimit(minY, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
+		console.log("minY2: " + minY);
+
+
+
+		console.log(minX,minY,minZ);
+		console.log(maxX,maxY,maxZ);
+
+		return {min:{x:minX,y:minY,z:minZ},max:{x:maxX,y:maxY,z:maxZ}};
 
 	},
+
 	union: function(otherCsg){
 		var csg = new CSG();
 		var that = this;
@@ -165,19 +272,19 @@ console.log("stl: "+i)
 /** Taken from Hyperfun Applet Polygonizer by Yuichiro Goto **/
 CSG.Polygonizer = function(min,max,div,isovalue,func,params,attrs) {
 	// Lower left front corner of the bounding box
-	this.xMin = min[0];
-	this.yMin = min[1];
-	this.zMin = min[2];
+	this.xMin = min.x;
+	this.yMin = min.y;
+	this.zMin = min.z;
 
 	// Upper right back corner of the bounding box
-	this.xMax = max[0];
-	this.yMax = max[1];
-	this.zMax = max[2];
+	this.xMax = max.x;
+	this.yMax = max.y;
+	this.zMax = max.z;
 
 	// Number of divisions along each axis of the bounding box
-	this.xDiv = div[0];
-	this.yDiv = div[1];
-	this.zDiv = div[2];
+	this.xDiv = div.x;
+	this.yDiv = div.y;
+	this.zDiv = div.z;
 	
 
 	// Isovalue of the isosurface
@@ -305,30 +412,14 @@ CSG.Polygonizer.prototype = {
 
 					// Calculate index into the lookup table
 					var cubeIndex = 0;
-					if (values[0] > this.isovalue) {
-						cubeIndex += 1;
-					}
-					if (values[1] > this.isovalue) {
-						cubeIndex += 2;
-					}
-					if (values[2] > this.isovalue) {
-						cubeIndex += 4;
-					}
-					if (values[3] > this.isovalue) {
-						cubeIndex += 8;
-					}
-					if (values[4] > this.isovalue) {
-						cubeIndex += 16;
-					}
-					if (values[5] > this.isovalue) {
-						cubeIndex += 32;
-					}
-					if (values[6] > this.isovalue) {
-						cubeIndex += 64;
-					}
-					if (values[7] > this.isovalue) {
-						cubeIndex += 128;
-					}
+					if (values[0] > this.isovalue) cubeIndex += 1;
+					if (values[1] > this.isovalue) cubeIndex += 2;
+					if (values[2] > this.isovalue) cubeIndex += 4;
+					if (values[3] > this.isovalue) cubeIndex += 8;
+					if (values[4] > this.isovalue) cubeIndex += 16;
+					if (values[5] > this.isovalue) cubeIndex += 32;
+					if (values[6] > this.isovalue) cubeIndex += 64;
+					if (values[7] > this.isovalue) cubeIndex += 128;
 
 					// Skip the empty cube
 					if (cubeIndex == 0 || cubeIndex == 255) {
@@ -761,10 +852,10 @@ CSG.LookupTable = function(){
 
 CSG.block = function(params, attrs) {
 	return new CSG(params, attrs, function(coords) {
-		var vertex = this.params.vertex;
-		var dx = this.params.dx;
-		var dy = this.params.dy;
-		var dz = this.params.dz;
+		var vertex = params.vertex;
+		var dx = params.dx;
+		var dy = params.dy;
+		var dz = params.dz;
 
 		var x0 = -(coords[0] - vertex[0]) * (coords[0] - (vertex[0] + dx));
 		var y0 = -(coords[1] - vertex[1]) * (coords[1] - (vertex[1] + dy));
@@ -777,22 +868,22 @@ CSG.block = function(params, attrs) {
 
 CSG.sphere = function(params, attrs) {
 	return new CSG(params, attrs, function(coords) {
-		var R = this.params.radius;
-		var x = coords[0] - this.params.center[0];
-		var y = coords[1] - this.params.center[1];
-		var z = coords[2] - this.params.center[2];
+		var R = params.radius;
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
 		return (R * R) - (x * x) - (y * y) - (z * z);
 	});
 };
 
 CSG.torusX = function(params, attrs) {
 	return new CSG(params, attrs, function(coords) {
-		var R = this.params.R;
-		var r0 = this.params.r0;
+		var R = params.R;
+		var r0 = params.r0;
 
-		var x = coords[0] - this.params.center[0];
-		var y = coords[1] - this.params.center[1];
-		var z = coords[2] - this.params.center[2];
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
 
 		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((y * y) + (z * z));
 	});
@@ -800,11 +891,11 @@ CSG.torusX = function(params, attrs) {
 
 CSG.gyroid = function(params, attrs) {
 	return new CSG(params, attrs, function(coords) {
-		var x = coords[0] - this.params.center[0];
-		var y = coords[1] - this.params.center[1];
-		var z = coords[2] - this.params.center[2];
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
         var r = x * x + y * y + z * z;
-        var	ti = Math.abs(Math.sin(this.params.t / 100000)) / 10 + 0.06;
+        var	ti = Math.abs(Math.sin(params.t / 100000)) / 10 + 0.06;
         var v = ti * r;
         return (Math.cos(x / v) * Math.sin(y / v) + Math.cos(y / v) * Math.sin(z / v) 
         	+ Math.cos(z / v) * Math.sin(x / v) + 1.0) - 0.1 * (1 - 0.016 * (r - 10 / r));
@@ -813,9 +904,9 @@ CSG.gyroid = function(params, attrs) {
 
 CSG.ellipsoid = function(params, attrs){
 	return new CSG(params, attrs, function(coords) {
-		var x = (coords[0] - this.params.center[0]) / this.params.a;
-		var y = (coords[1] - this.params.center[1]) / this.params.b;
-		var z = (coords[2] - this.params.center[2]) / this.params.c;
+		var x = (coords[0] - params.center[0]) / params.a;
+		var y = (coords[1] - params.center[1]) / params.b;
+		var z = (coords[2] - params.center[2]) / params.c;
         
         return 1 - (x * x) - (y * y) - (z * z);
 	});
@@ -823,24 +914,37 @@ CSG.ellipsoid = function(params, attrs){
 
 CSG.cylinderY = function(params, attrs){
 	return new CSG(params, attrs, function(coords) {
-		var x = coords[0] - this.params.center[0];
-		var z = coords[2] - this.params.center[2];
-        return (this.params.R * this.params.R) - (x * x) - (z * z);
+		var x = coords[0] - params.center[0];
+		var z = coords[2] - params.center[2];
+        return (params.R * params.R) - (x * x) - (z * z);
 	});
 };
 
 CSG.cylinderX = function(params, attrs){
 	return new CSG(params, attrs, function(coords) {
-		var y = coords[1] - this.params.center[1];
-		var z = coords[2] - this.params.center[2];
-        return (this.params.R * this.params.R) - (y * y) - (z * z);
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
+        return (params.R * params.R) - (y * y) - (z * z);
 	});
 };
 
 CSG.cylinderZ = function(params, attrs){
 	return new CSG(params, attrs, function(coords) {
-		var x = coords[0] - this.params.center[0];
-		var y = coords[1] - this.params.center[1];
-        return (this.params.R * this.params.R) - (x * x) - (y * y);
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+        return (params.R * params.R) - (x * x) - (y * y);
+	});
+};
+
+
+
+CSG.heart = function(params, attrs){
+	return new CSG(params, attrs, function(coords) {
+		var x = (coords[0] - params.center[0]);
+		var y = (coords[1] - params.center[1]);
+		var z = (coords[2] - params.center[2]);
+
+		var pow = Math.pow
+		return pow(pow(x,2)+(9/4)*pow(y,2)+pow(z,2)-1,3) - pow(x,2)*pow(z,3)-(9/80)*pow(y,2)*pow(z,3);
 	});
 };

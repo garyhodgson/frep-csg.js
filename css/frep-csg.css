@@ -1,0 +1,9 @@
+.editor { width: 39%; height: 600px; }
+.viewer { float: right; width: 60%; height: 600px; background: #EEE;}
+.controls { float: left; width: 38%; padding: 5px; margin-top: 5px; border:1px dashed grey; }
+.info {  width: 59%; height: 200px; padding: 5px; margin: 5px; }
+input[type=number] { width: 60px;}
+#grid input { width: 30px;}
+canvas { cursor: move; }
+
+#spinner { display:none;}
