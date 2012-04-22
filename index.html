@@ -8,6 +8,7 @@
 	<script src="js/sisyphus.min.js"></script>
 	<script src="js/date.format.js"></script>
 	<script src="js/lightgl.js"></script>
+	<script src="WorkerConsole.js"></script>
 
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
@@ -148,16 +149,29 @@
 				} else {
 					working();
 					setTimeout(function(){
-						var bb = model.findBoundingBox(getBoundingBox());
+						var workers = new Array(6)
+						var resultBB = MAX_BOUNDING_BOX
+						var resultsCount = 0;
 
-						if (bb != undefined){
-							setBoundingBox(bb);
-						} else {
-							notify("Unable to determine Bounding Box.");
+						for (var i = 0; i <6; i++){
+							workers[i] = new Worker('BoundaryBoxLimitWorker.js');
+							workers[i].addEventListener('message', function(e) {
+							  resultBB[e.data.dir][e.data.axis] = e.data.val;
+							  if (++resultsCount == 6){
+							  	setBoundingBox(resultBB);
+							  	notworking();
+							  }
+							}, false);
 						}
-						notworking();
-					}, 100);
-					
+
+						var func = $('#editor1').val();
+						workers[0].postMessage({'axis':'x','dir':'min','func':func,'params':model.params});
+						workers[1].postMessage({'axis':'y','dir':'max','func':func,'params':model.params});
+						workers[2].postMessage({'axis':'z','dir':'min','func':func,'params':model.params});
+						workers[3].postMessage({'axis':'x','dir':'max','func':func,'params':model.params});
+						workers[4].postMessage({'axis':'y','dir':'min','func':func,'params':model.params});
+						workers[5].postMessage({'axis':'z','dir':'max','func':func,'params':model.params});
+					}, 100);					
 				}
 			});
 

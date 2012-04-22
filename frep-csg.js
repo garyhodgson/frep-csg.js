@@ -1,7 +1,9 @@
 var ALPHA = 0.0;
-var MAX_BOUNDING_BOX = {min:{x:-500.0,y:-500.0,z:-500.0},max:{x:500.0,y:500.0,z:500.0}};
-var BOUNDING_BOX_ACCURACY = 0.5;
-var BOUNDING_BOX_PRECISION = 2;
+var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
+var BOUNDING_BOX_ACCURACY_COARSE = 1;
+var BOUNDING_BOX_ACCURACY_FINE = 0.1;
+var BOUNDING_BOX_PRECISION = 12;
+
 
 CSG = function(p, a, f) {
 	this.func = f;
@@ -142,113 +144,6 @@ CSG.prototype = {
 	    }, function() {});
 
 	},
-
-
-	findBoundingBox: function(){
-
-		if (!this.func){
-			notify("No function found!");
-			return;
-		}
-
-		var f = this.func;
-		var center = [0,0,0];
-
-		if (this.params && this.params.center) center = this.params.center;
-
-		if (f(center) < 0){
-			notify("No volume found!");
-			return;	
-		}
-		function inc(val){
-			return parseFloat((val+BOUNDING_BOX_ACCURACY).toPrecision(BOUNDING_BOX_PRECISION));
-		}
-		function dec(val){
-			return parseFloat((val-BOUNDING_BOX_ACCURACY).toPrecision(BOUNDING_BOX_PRECISION));
-		}
-
-		var minX = center[0]
-		while (minX >= MAX_BOUNDING_BOX.min.x && f([minX,center[1],center[2]]) >=0) minX = dec(minX);
-		var maxX = center[0]
-		while (maxX <= MAX_BOUNDING_BOX.max.x && f([maxX,center[1],center[2]]) >=0) maxX = inc(maxX);
-
-		var minY = center[1]
-		while (minY >= MAX_BOUNDING_BOX.min.y && f([center[0],minY,center[2]]) >=0) minY = dec(minY);
-		var maxY = center[1]
-		while (maxY <= MAX_BOUNDING_BOX.max.y && f([center[0],maxY,center[2]]) >=0) maxY = inc(maxY);
-
-		var minZ = center[2]
-		while (minZ >= MAX_BOUNDING_BOX.min.z && f([center[0],center[1],minZ]) >=0) minZ = dec(minZ);
-		var maxZ = center[2]
-		while (maxZ <= MAX_BOUNDING_BOX.max.z && f([center[0],center[1],maxZ]) >=0) maxZ = inc(maxZ);
-
-
-		// refine max
-		function refineMaxLimit(max, upperLimit, lower1, upper1, lower2, upper2, funcMap){
-			var searching = true;
-			while (searching) {
-				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
-				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
-					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
-						if (funcMap(i,j,max) >=0){
-							max = inc(max);
-						} else {
-							searching = false;
-						}
-					}
-				}
-				if (max >= upperLimit){
-					searching = false;	
-				}
-			}
-			return max;
-		}
-
-
-		var maxZ = refineMaxLimit(maxZ, MAX_BOUNDING_BOX.max.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
-		console.log("maxZ: " + maxZ);
-
-		var maxX = refineMaxLimit(maxX, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
-		console.log("maxX: " + maxX);
-
-		var maxY = refineMaxLimit(maxY, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
-		console.log("maxY: " + maxY);
-
-		// refine min
-		function refineMinLimit(min, lowerLimit, lower1, upper1, lower2, upper2, funcMap){
-			var searching = true;
-			while (searching) {
-				// use full MAX_BOUNDING_BOX as there may be thin spikes outside of the 1/2 region
-				for (var i = lower1; i <= upper1; i+=BOUNDING_BOX_ACCURACY){
-					for (var j = lower2; j <= upper2; j+=BOUNDING_BOX_ACCURACY){
-						if (funcMap(i,j,min) >=0){
-							min = dec(min);
-						} else {
-							searching = false;
-						}
-					}
-				}
-				if (min <= lowerLimit){
-					searching = false;	
-				}
-			}
-			return min;
-		}
-
-		var minZ = refineMinLimit(minZ, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, function(x,y,z){return f([x,y,z])});
-		console.log("minZ: " + minZ);
-		var minX = refineMinLimit(minX, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.max.y, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(y,z,x){return f([x,y,z])});
-		console.log("minX: " + minX);
-		var minY = refineMinLimit(minY, MAX_BOUNDING_BOX.min.y, MAX_BOUNDING_BOX.min.x, MAX_BOUNDING_BOX.max.x, MAX_BOUNDING_BOX.min.z, MAX_BOUNDING_BOX.max.z, function(x,z,y){return f([x,y,z])});
-		console.log("minY: " + minY);
-
-		console.log(minX,minY,minZ);
-		console.log(maxX,maxY,maxZ);
-
-		return {min:{x:minX,y:minY,z:minZ},max:{x:maxX,y:maxY,z:maxZ}};
-
-	},
-
 	union: function(otherCsg){
 		var csg = new CSG();
 		var that = this;
