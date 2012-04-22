@@ -37,7 +37,7 @@
 			$('#spinner').hide();
 		}
 
-		var defaultEditorContent = "var a = CSG.sphere({center:[3,3,3], radius:2});\nvar b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});\nreturn  b.union(a);\n\n//return  b.intersect(a);\n\n//return  b.subtract(a);\n\n//return  a.subtract(b);\n\n//return CSG.torusX({center:[2,2,2], R:2, r0:1});\n\n//return CSG.gyroid({center:[2,2,2], t:0.1});\n\n//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});";
+		var defaultEditorContent = "var a = CSG.sphere({center:[3,3,3], radius:2});\nvar b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});\n\nreturn  b.union(a);\n\n//return  b.intersect(a);\n\n//return  b.subtract(a);\n\n//return  a.subtract(b);\n\n//return CSG.torusX({center:[2,2,2], R:2, r0:1});\n\n//return CSG.gyroid({center:[2,2,2], t:0.1});\n\n//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});";
 
 		function getBoundingBox(){
 			var minX = parseFloat($('#boundaryBoxMinX').val());
@@ -157,6 +157,7 @@
 							workers[i] = new Worker('BoundaryBoxLimitWorker.js');
 							workers[i].addEventListener('message', function(e) {
 							  resultBB[e.data.dir][e.data.axis] = e.data.val;
+							  console.log(e.data.dir,e.data.axis,e.data.val)
 							  if (++resultsCount == 6){
 							  	setBoundingBox(resultBB);
 							  	notworking();
@@ -166,10 +167,10 @@
 
 						var func = $('#editor1').val();
 						workers[0].postMessage({'axis':'x','dir':'min','func':func,'params':model.params});
-						workers[1].postMessage({'axis':'y','dir':'max','func':func,'params':model.params});
-						workers[2].postMessage({'axis':'z','dir':'min','func':func,'params':model.params});
-						workers[3].postMessage({'axis':'x','dir':'max','func':func,'params':model.params});
-						workers[4].postMessage({'axis':'y','dir':'min','func':func,'params':model.params});
+						workers[1].postMessage({'axis':'x','dir':'max','func':func,'params':model.params});
+						workers[2].postMessage({'axis':'y','dir':'min','func':func,'params':model.params});
+						workers[3].postMessage({'axis':'y','dir':'max','func':func,'params':model.params});
+						workers[4].postMessage({'axis':'z','dir':'min','func':func,'params':model.params});
 						workers[5].postMessage({'axis':'z','dir':'max','func':func,'params':model.params});
 					}, 100);					
 				}
