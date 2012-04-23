@@ -5,5 +5,6 @@
 input[type=number] { width: 60px;}
 #grid input { width: 30px;}
 canvas { cursor: move; }
+.updated {	background-color: #C2F0C2; }
 
 #spinner { display:none;}

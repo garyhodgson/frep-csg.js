@@ -2,19 +2,15 @@
 importScripts('frep-csg.js');
 
 onmessage = function(e){
-	var fString = e.data.func.toString().replace('function (coords) {','');
-	fString = fString.substring(0,fString.length-1);
-	var f = new Function('params','attrs', 'return new CSG(params, attrs, function(coords) {'+fString+'});');
-	var localCsg = f(e.data.params, e.data.attrs);
+
+	var localCsg = new CSG(e.data.params, e.data.attrs, e.data.funcDef);
 
 	var polygonizer = new CSG.Polygonizer(this, 
 			e.data.boundingBox.min, 
 			e.data.boundingBox.max,
 			{x:e.data.grid,y:e.data.grid,z:e.data.grid},
 			e.data.isosurface,
-			localCsg.func,
-			localCsg.params,
-			localCsg.attrs);
+			localCsg);
 
 	var vertices = new Array();
 	var normals = new Array();
@@ -29,7 +25,7 @@ onmessage = function(e){
 
 
 /** Taken from Hyperfun Applet Polygonizer by Yuichiro Goto **/
-CSG.Polygonizer = function(worker, min,max,div,isovalue,func,params,attrs) {
+CSG.Polygonizer = function(worker, min,max,div,isovalue,csg) {
 	this.worker = worker;
 	// Lower left front corner of the bounding box
 	this.xMin = min.x;
@@ -46,13 +42,10 @@ CSG.Polygonizer = function(worker, min,max,div,isovalue,func,params,attrs) {
 	this.yDiv = div.y;
 	this.zDiv = div.z;
 	
+	this.csg = csg;
 
 	// Isovalue of the isosurface
 	this.isovalue = isovalue;
-	// Function defining the isosurface
-	this.func = func;
-	this.params = params;
-	this.attrs = attrs;
 
 	var dx, dy, dz;
 	var ndx, ndy, ndz;
@@ -71,10 +64,10 @@ CSG.Polygonizer.prototype = {
 		var y = v[1];
 		var z = v[2];
 
-		var f = this.func([x, y, z]);
-		var nx = -(this.func([x + this.ndx, y, z]) - f) / this.ndx;
-		var ny = -(this.func([x, y + this.ndy, z]) - f) / this.ndy;
-		var nz = -(this.func([x, y, z + this.ndz]) - f) / this.ndz;
+		var f = this.csg.call([x, y, z]);
+		var nx = -(this.csg.call([x + this.ndx, y, z]) - f) / this.ndx;
+		var ny = -(this.csg.call([x, y + this.ndy, z]) - f) / this.ndy;
+		var nz = -(this.csg.call([x, y, z + this.ndz]) - f) / this.ndz;
 
 		var len = Math.sqrt(nx * nx + ny * ny + nz * nz);
 		if (len > 0.0) {
@@ -89,7 +82,7 @@ CSG.Polygonizer.prototype = {
 			var y = this.yMin + j * this.dy;
 			for (var i = 0; i <= this.xDiv; i++) {
 				var x = this.xMin + i * this.dx;
-				plane[j][i] = this.func([x,y,z]);
+				plane[j][i] = this.csg.call([x,y,z]);
 			}
 		}
 	},
