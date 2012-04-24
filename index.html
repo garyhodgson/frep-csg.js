@@ -93,6 +93,10 @@
 			}
 
 			$('#polygonise').click(function(e){			
+
+
+
+				//alert("remember multi workers returns weird results....")
 				working();
 				resetProgress($('#grid').val());
 
@@ -100,10 +104,10 @@
 				model = f();
 
 				var grid = parseFloat($('#grid').val());
-				
+				var numWorkers = parseFloat($('#numWorkers').val());				
 				var isosurface = parseFloat($('#isosurface').val());
 
-				model.polygonise(grid, getBoundingBox(), isosurface, function(mesh){
+				model.polygonise(grid, getBoundingBox(), isosurface, numWorkers, function(mesh){
 					viewer.updateMesh(mesh);
 					notworking();
 					setTimeout(function(){
@@ -228,7 +232,8 @@
 				<progress id="zProgress" max="100" value="0"></progress>
 			<br>
 		
-			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface:<input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1"/><br>
+			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface: <input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1"/><br>
+			Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4"/><br>
 				
 			<fieldset id="boundaryBox">
 				<legend>Boundary Box</legend>

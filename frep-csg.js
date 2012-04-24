@@ -7,6 +7,7 @@ CSG = function(params, attrs, funcDef) {
 	this.params = params;
 	this.attrs = attrs;
 	this.funcDef = funcDef;
+	console.log(funcDef)
 	this.func = new Function('coords','params','attrs', funcDef);
 	
 	this.vertices = new Array();
@@ -19,42 +20,80 @@ CSG.prototype = {
 	call: function(coords){
 		return this.func(coords, this.params, this.attrs);
 	},
-	polygonise: function(grid, boundingBox, isosurface, callback) {
-		var grid = grid?grid:50;
+	polygonise: function(gridSize, boundingBox, isosurface, numWorkers, callback) {
+		var gridSize = gridSize?gridSize:50;
+		var grid = {x:gridSize,y:gridSize,z:gridSize}
 		var boundingBox = boundingBox?boundingBox:{min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
 		var isosurface = isosurface?isosurface:0.0;
 
-		var polygoniserWorker = new Worker('PolygoniserWorker.js')
+		var numWorkers = numWorkers?numWorkers:4;
+		var polygoniserWorkers = new Array(numWorkers);
+		var resultsCount = 0;
+		
+		this.verticesArray = new Array(numWorkers);
+		this.normalsArray = new Array(numWorkers);
+		this.indicesArray = new Array(numWorkers);
 		var that = this;
 
-		polygoniserWorker.onmessage = function(e){
-			if (e.data.msg != undefined){
-				notify(e.data.msg);
-			}
-			if (e.data.progress != undefined){
-				incrementProgress(1);
-			}
-			if (e.data.results != undefined){
-				that.vertices = e.data.results.vertices;
-				that.normals = e.data.results.normals;
-				that.indices = e.data.results.indices;
+		var division = (Math.abs(boundingBox.min.z)+boundingBox.max.z)/numWorkers;
 
-				var mesh = new GL.Mesh({ normals: true, colors: true });
-				var indexer = new GL.Indexer();
+		for (var i = 0; i <numWorkers; i++){
+		
+			polygoniserWorkers[i] = new Worker('PolygoniserWorker.js')			
 
-				for (var i = 2; i < that.indices.length; i+=3) {
-					mesh.triangles.push([that.indices[i-2], that.indices[i - 1], that.indices[i]]);
+			polygoniserWorkers[i].onmessage = function(e){
+				
+				if (e.data.msg != undefined) notify(e.data.msg);
+				if (e.data.progress != undefined) incrementProgress(1);
+
+				if (e.data.results != undefined) {
+
+					var workerId = parseInt(e.data.worker)
+
+					that.verticesArray[workerId] = e.data.results.vertices;
+					that.normalsArray[workerId] = e.data.results.normals;
+					that.indicesArray[workerId] = e.data.results.indices;
+
+					resultsCount++;
+					
+					if (resultsCount == numWorkers){
+						var offset = 0
+
+						for(var h=0; h < numWorkers; h++){
+							that.vertices = that.vertices.concat(that.verticesArray[h]);
+							that.normals = that.normals.concat(that.normalsArray[h]);
+
+							var indexArray = that.indicesArray[h];
+							for (var k in indexArray){
+								var newIndex = parseInt(indexArray[k]) + offset
+								that.indices.push(newIndex)
+							}
+							offset += that.verticesArray[h].length
+
+						}
+
+						var mesh = new GL.Mesh({ normals: true, colors: true });
+
+						for (var i = 2; i < that.indices.length; i+=3) {
+							mesh.triangles.push([that.indices[i-2], that.indices[i - 1], that.indices[i]]);
+						}
+
+						mesh.vertices = that.vertices;
+						mesh.normals = that.normals;
+						mesh.colors = that.vertices.map(function(v){return [0.85,0.85,0.85,0.85];});
+						mesh.computeWireframe();
+
+						callback(mesh);
+					}
 				}
-
-				mesh.vertices = that.vertices;
-				mesh.normals = that.normals;
-				mesh.colors = that.vertices.map(function(v){return [0.85,0.85,0.85,0.85];});
-				mesh.computeWireframe();
-
-				callback(mesh);
 			}
+			var bb = $.extend(true, {}, boundingBox);
+			bb.min.z = boundingBox.min.z + (division*i);
+			bb.max.z = bb.min.z + division;
+			grid.z = gridSize/numWorkers
+			
+			polygoniserWorkers[i].postMessage({'worker':i, 'boundingBox':bb, 'grid':grid, 'isosurface':isosurface, 'funcDef': this.funcDef, 'params':this.params, 'attrs':this.attrs})
 		}
-		polygoniserWorker.postMessage({'boundingBox':boundingBox, 'grid':grid, 'isosurface':isosurface, 'funcDef': this.funcDef, 'params':this.params, 'attrs':this.attrs})
 	},
 	
 	toStl: function(callback){
@@ -95,10 +134,10 @@ CSG.prototype = {
 	intersect: function(otherCsg){
 		var params = [this.params, otherCsg.params];
 		var attrs =  [this.attrs, otherCsg.attrs];
-		var funcDef = "var c1 = new CSG(this.params[0], this.attrs[0], '"+this.funcDef+"'); \
-			var c2 = new CSG(this.params[1], this.attrs[1], '"+otherCsg.funcDef+"'); \
-			var result1 = c1.func(coords); \
-			var result2 = c2.func(coords); \
+		var funcDef = "var c1 = new CSG(params[0], attrs[0], '"+this.funcDef+"'); \
+			var c2 = new CSG(params[1], attrs[1], '"+otherCsg.funcDef+"'); \
+			var result1 = c1.call(coords); \
+			var result2 = c2.call(coords); \
 			return (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
 			";
 		return new CSG(params, attrs, funcDef);
@@ -106,10 +145,10 @@ CSG.prototype = {
 	subtract: function(otherCsg){
 		var params = [this.params, otherCsg.params];
 		var attrs =  [this.attrs, otherCsg.attrs];
-		var funcDef = "var c1 = new CSG(this.params[0], this.attrs[0], '"+this.funcDef+"'); \
-			var c2 = new CSG(this.params[1], this.attrs[1], '"+otherCsg.funcDef+"'); \
-			var result1 = c1.func(coords); \
-			var result2 = c2.func(coords); \
+		var funcDef = "var c1 = new CSG(params[0], attrs[0], '"+this.funcDef+"'); \
+			var c2 = new CSG(params[1], attrs[1], '"+otherCsg.funcDef+"'); \
+			var result1 = c1.call(coords); \
+			var result2 = c2.call(coords); \
 			result1 = -result1; \
 			return (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
 			";

@@ -8,7 +8,7 @@ onmessage = function(e){
 	var polygonizer = new CSG.Polygonizer(this, 
 			e.data.boundingBox.min, 
 			e.data.boundingBox.max,
-			{x:e.data.grid,y:e.data.grid,z:e.data.grid},
+			{x:e.data.grid.x,y:e.data.grid.y,z:e.data.grid.z},
 			e.data.isosurface,
 			localCsg);
 
@@ -18,7 +18,7 @@ onmessage = function(e){
 
 	polygonizer.polygonize(vertices, normals, indices);
 
-	postMessage({'msg':"Vertices: "+vertices.length+ "; Normals: "+ normals.length+ "; Indices: "+ indices.length+";", 
+	postMessage({'worker':e.data.worker,'msg':"Worker("+e.data.worker+"): Vertices: "+vertices.length+ "; Normals: "+ normals.length+ "; Indices: "+ indices.length+";", 
 				 'results':{'vertices':vertices, 'normals':normals, 'indices':indices}})
 
 }
