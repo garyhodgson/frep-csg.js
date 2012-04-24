@@ -7,7 +7,6 @@ CSG = function(params, attrs, funcDef) {
 	this.params = params;
 	this.attrs = attrs;
 	this.funcDef = funcDef;
-	console.log(funcDef)
 	this.func = new Function('coords','params','attrs', funcDef);
 	
 	this.vertices = new Array();
