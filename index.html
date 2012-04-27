@@ -150,6 +150,7 @@
 
 			$('#boundaryBoxMinAll').blur(function(){
 				var v = $(this).val();
+				if (v == '') return;
 				$('#boundaryBoxMinX').val(v).change();
 				$('#boundaryBoxMinY').val(v).change();
 				$('#boundaryBoxMinZ').val(v).change();
@@ -157,6 +158,7 @@
 
 			$('#boundaryBoxMaxAll').blur(function(){
 				var v = $(this).val();
+				if (v == '') return;
 				$('#boundaryBoxMaxX').val(v).change();
 				$('#boundaryBoxMaxY').val(v).change();
 				$('#boundaryBoxMaxZ').val(v).change();

@@ -6,9 +6,6 @@ var depth = 20;
 var xPos = 0;
 var yPos = 0;
 
-// Set to true so lines don't use the depth buffer
-Viewer.lineOverlay = true;
-
 // A viewer is a WebGL canvas that lets the user view a mesh. The user can
 // tumble it around by dragging the mouse.
 function Viewer(width, height, depth, id) {
