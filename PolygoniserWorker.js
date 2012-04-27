@@ -3,7 +3,8 @@ importScripts('frep-csg.js');
 
 onmessage = function(e){
 
-	var localCsg = new CSG(e.data.params, e.data.attrs, e.data.funcDef);
+	var f = eval("("+e.data.funcDef+")");
+	var localCsg = new CSG(e.data.params, e.data.attrs, f);
 
 	var polygonizer = new CSG.Polygonizer(this, 
 			e.data.boundingBox.min, 

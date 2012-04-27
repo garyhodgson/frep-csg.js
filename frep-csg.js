@@ -3,19 +3,17 @@ var ALPHA = 0.0;
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
 var MIN_BOUNDING_BOX = {min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
 
-CSG = function(params, attrs, funcDef) {
+CSG = function(params, attrs, func) {
 	this.params = params;
 	this.attrs = attrs;
-	this.funcDef = funcDef;
-	this.func = new Function('coords','params','attrs', funcDef);
-	
+	this.func = func;
+	this.funcDef = func.toString();	
 	this.vertices = new Array();
 	this.normals = new Array();
 	this.indices = new Array();
 }
 
 CSG.prototype = {
-
 	call: function(coords){
 		return this.func(coords, this.params, this.attrs);
 	},
@@ -91,7 +89,7 @@ CSG.prototype = {
 			bb.min.z = boundingBox.min.z + (division*i);
 			bb.max.z = bb.min.z + division;
 			grid.z = gridSize/numWorkers
-			
+
 			polygoniserWorkers[i].postMessage({'worker':i, 'boundingBox':bb, 'grid':grid, 'isosurface':isosurface, 'funcDef': this.funcDef, 'params':this.params, 'attrs':this.attrs})
 		}
 	},
@@ -125,7 +123,7 @@ CSG.prototype = {
 		var funcDef = "	var result1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
 						var result2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						return (1/(1+ALPHA))*(result2 + result1 + Math.sqrt(Math.abs(result2*result2 + result1*result1-2*ALPHA*result1*result2)));";
-		return new CSG(params, attrs, funcDef);
+		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	add: function(otherCsg){
 		var params = [this.params, otherCsg.params];
@@ -133,7 +131,7 @@ CSG.prototype = {
 		var funcDef = "	var result1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
 						var result2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						return result1 + result2";
-		return new CSG(params, attrs, funcDef);
+		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	intersect: function(otherCsg){
 		var params = [this.params, otherCsg.params];
@@ -141,7 +139,7 @@ CSG.prototype = {
 		var funcDef = "	var result1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
 						var result2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						return (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2)));";
-		return new CSG(params, attrs, funcDef);
+		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	subtract: function(otherCsg){
 		var params = [this.params, otherCsg.params];
@@ -150,7 +148,7 @@ CSG.prototype = {
 						var result2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						result1 = -result1; \
 						return (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2)));";
-		return new CSG(params, attrs, funcDef);
+		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	rotateZ: function(theta){
 		var params = [this.params,{'theta':theta}];
@@ -164,7 +162,7 @@ CSG.prototype = {
 						coords[1] = yr; \
 						return "+this.func.toString()+"(coords,params[0],attrs[0]);\
 						";
-		return new CSG(params, attrs, funcDef);
+		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	//x1, x2 - end points of x-interval
  	//theta1, theta2 - rotation angles in radians for end points
@@ -190,118 +188,127 @@ CSG.prototype = {
 };
 
 /**Shapes **/
-
 CSG.block = function(params, attrs) {
-	return new CSG(params, attrs, " \
-		var vertex = params.vertex; \
-		var dx = params.dx; \
-		var dy = params.dy; \
-		var dz = params.dz; \
-		var x0 = -(coords[0] - vertex[0]) * (coords[0] - (vertex[0] + dx)); \
-		var y0 = -(coords[1] - vertex[1]) * (coords[1] - (vertex[1] + dy)); \
-		var z0 = -(coords[2] - vertex[2]) * (coords[2] - (vertex[2] + dz)); \
-		var i0 = x0 + y0 - Math.sqrt(x0 * x0 + y0 * y0); \
-		return i0 + z0 - Math.sqrt(i0 * i0 + z0 * z0); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var vertex = params.vertex; 
+		var dx = params.dx; 
+		var dy = params.dy; 
+		var dz = params.dz; 
+		var x0 = -(coords[0] - vertex[0]) * (coords[0] - (vertex[0] + dx)); 
+		var y0 = -(coords[1] - vertex[1]) * (coords[1] - (vertex[1] + dy)); 
+		var z0 = -(coords[2] - vertex[2]) * (coords[2] - (vertex[2] + dz)); 
+		var i0 = x0 + y0 - Math.sqrt(x0 * x0 + y0 * y0); 
+		return i0 + z0 - Math.sqrt(i0 * i0 + z0 * z0); 
+	});
 };
 
 
 CSG.sphere = function(params, attrs) {
-	return new CSG(params, attrs, "\
-		var R = params.radius; \
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-		return (R * R) - (x * x) - (y * y) - (z * z); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var R = params.radius;
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+		var z = coords[2] - params.center[2]; 
+		return (R * R) - (x * x) - (y * y) - (z * z); 
+		});
+};
+
+CSG.sphereOld = function(params, attrs) {
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var R = params.radius; 
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+		var z = coords[2] - params.center[2]; 
+		return (R * R) - (x * x) - (y * y) - (z * z); 
+	});
 };
 
 CSG.torusX = function(params, attrs) {
-	return new CSG(params, attrs, "\
-		var R = params.R; \
-		var r0 = params.r0; \
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((y * y) + (z * z)); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var R = params.R; 
+		var r0 = params.r0; 
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+		var z = coords[2] - params.center[2]; 
+		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((y * y) + (z * z)); 
+	});
 };
 
 CSG.torusY = function(params, attrs) {
-	return new CSG(params, attrs, "\
-		var R = params.R; \
-		var r0 = params.r0; \
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((x * x) + (z * z)); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var R = params.R; 
+		var r0 = params.r0; 
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2]; 
+		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((x * x) + (z * z)); 
+	});
 };
 
 CSG.torusZ = function(params, attrs) {
-	return new CSG(params, attrs, "\
-		var R = params.R; \
-		var r0 = params.r0; \
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((x * x) + (y * y)); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var R = params.R; 
+		var r0 = params.r0; 
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+		var z = coords[2] - params.center[2]; 
+		return (r0 * r0) - (x * x) - (y * y) - (z * z) - (R * R) + 2 * R * Math.sqrt((x * x) + (y * y)); 
+	});
 };
 
 CSG.gyroid = function(params, attrs) {
-	return new CSG(params, attrs, "\
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-        var r = x * x + y * y + z * z; \
-        var	ti = Math.abs(Math.sin(params.t / 100000)) / 10 + 0.06; \
-        var v = ti * r; \
-        return (Math.cos(x / v) * Math.sin(y / v) + Math.cos(y / v) * Math.sin(z / v)  + Math.cos(z / v) * Math.sin(x / v) + 1.0) - 0.1 * (1 - 0.016 * (r - 10 / r)); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+		var z = coords[2] - params.center[2]; 
+        var r = x * x + y * y + z * z; 
+        var	ti = Math.abs(Math.sin(params.t / 100000)) / 10 + 0.06; 
+        var v = ti * r; 
+        return (Math.cos(x / v) * Math.sin(y / v) + Math.cos(y / v) * Math.sin(z / v)  + Math.cos(z / v) * Math.sin(x / v) + 1.0) - 0.1 * (1 - 0.016 * (r - 10 / r)); 
+	});
 };
 
 CSG.ellipsoid = function(params, attrs){
-	return new CSG(params, attrs, "\
-		var x = (coords[0] - params.center[0]) / params.a; \
-		var y = (coords[1] - params.center[1]) / params.b; \
-		var z = (coords[2] - params.center[2]) / params.c; \
-        return 1 - (x * x) - (y * y) - (z * z); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = (coords[0] - params.center[0]) / params.a; 
+		var y = (coords[1] - params.center[1]) / params.b; 
+		var z = (coords[2] - params.center[2]) / params.c; 
+        return 1 - (x * x) - (y * y) - (z * z); 
+	});
 };
 
 CSG.cylinderY = function(params, attrs){
-	return new CSG(params, attrs, "\
-		var x = coords[0] - params.center[0]; \
-		var z = coords[2] - params.center[2]; \
-        return (params.R * params.R) - (x * x) - (z * z); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0] - params.center[0]; 
+		var z = coords[2] - params.center[2]; 
+        return (params.R * params.R) - (x * x) - (z * z); 
+	});
 };
 
 CSG.cylinderX = function(params, attrs){
-	return new CSG(params, attrs, "\
-		var y = coords[1] - params.center[1]; \
-		var z = coords[2] - params.center[2]; \
-        return (params.R * params.R) - (y * y) - (z * z); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2]; 
+        return (params.R * params.R) - (y * y) - (z * z); 
+	});
 };
 
 CSG.cylinderZ = function(params, attrs){
-	return new CSG(params, attrs, "\
-		var x = coords[0] - params.center[0]; \
-		var y = coords[1] - params.center[1]; \
-        return (params.R * params.R) - (x * x) - (y * y); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0] - params.center[0]; 
+		var y = coords[1] - params.center[1]; 
+        return (params.R * params.R) - (x * x) - (y * y); 
+	});
 };
 
 
 
 CSG.heart = function(params, attrs){
-	return new CSG(params, attrs, "\
-		var x = (coords[0] - params.center[0]); \
-		var y = (coords[1] - params.center[1]); \
-		var z = (coords[2] - params.center[2]); \
-		var pow = Math.pow; \
-		return pow(pow(x,2)+(9/4)*pow(y,2)+pow(z,2)-1,3) - pow(x,2)*pow(z,3)-(9/80)*pow(y,2)*pow(z,3); \
-	");
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = (coords[0] - params.center[0]); 
+		var y = (coords[1] - params.center[1]); 
+		var z = (coords[2] - params.center[2]); 
+		var pow = Math.pow; 
+		return pow(pow(x,2)+(9/4)*pow(y,2)+pow(z,2)-1,3) - pow(x,2)*pow(z,3)-(9/80)*pow(y,2)*pow(z,3); 
+	});
 };
