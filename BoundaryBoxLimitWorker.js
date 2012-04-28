@@ -102,7 +102,8 @@ onmessage = function(e) {
 	if (!e.data){
 		return
 	}
-	localCsg = new CSG(e.data.params, e.data.attrs, e.data.funcDef);
+	var f = eval("("+e.data.funcDef+")");
+	localCsg = new CSG(e.data.params, e.data.attrs, f);
 	
 	var axis = e.data.axis
 	var dir = e.data.dir

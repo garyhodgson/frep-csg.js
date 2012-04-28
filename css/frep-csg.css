@@ -8,3 +8,7 @@ canvas { cursor: move; }
 .updated {	background-color: #C2F0C2; }
 
 #spinner { display:none;}
+
+.overlay {
+	background-color: red;
+}

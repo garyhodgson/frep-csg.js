@@ -70,7 +70,7 @@ function Viewer(width, height, depth, id) {
 
   $('#viewer1').bind('mousewheel', function(event, delta, deltaX, deltaY) {
     if (that.hasMesh()){
-      depth -= delta*10;
+      depth -= delta*5;
       viewer.gl.ondraw();
       event.preventDefault();
     }

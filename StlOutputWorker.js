@@ -61,26 +61,62 @@ onmessage = function(e){
     
     stlOutput.push("endsolid\n");
 
-    webkitRequestFileSystem(TEMPORARY, 1024*1024, function(fs) {
-        fs.root.getFile('out.stl', {create: true}, function(fileEntry) {
-            fileEntry.createWriter(function(fileWriter) {
+    function errorHandler(e) {
+	    var msg = '';
+	    switch (e.code) {
+	      case FileError.QUOTA_EXCEEDED_ERR:
+	        msg = 'QUOTA_EXCEEDED_ERR';
+	        break;
+	      case FileError.NOT_FOUND_ERR:
+	        msg = 'NOT_FOUND_ERR';
+	        break;
+	      case FileError.SECURITY_ERR:
+	        msg = 'SECURITY_ERR';
+	        break;
+	      case FileError.INVALID_MODIFICATION_ERR:
+	        msg = 'INVALID_MODIFICATION_ERR';
+	        break;
+	      case FileError.INVALID_STATE_ERR:
+	        msg = 'INVALID_STATE_ERR';
+	        break;
+	      default:
+	        msg = 'Unknown Error';
+	        break;
+	    };
+	    postMessage({'msg':'STL write error. ' + msg});
+  }
+
+	webkitRequestFileSystem(TEMPORARY, 0, function(fs) {
+	    fs.root.getFile('out.stl', {create: true}, function(fileEntry) {
+	        fileEntry.createWriter(function(fileWriter) {
+
+	        	
 				fileWriter.onwriteend = function(e) {
-					postMessage({'msg':'STL write completed.', 'url':fileEntry.toURL()});
-                };
+					fileWriter.onwriteend = null; // Avoid an infinite loop.
+					fileEntry.createWriter(function(fw) {
+
+						var builder = new WebKitBlobBuilder();
+
+		                for (var i = 0; i < stlOutput.length; i++){
+		                	builder.append(stlOutput[i]);
+		                }
+
+						fw.onwriteend = function(e) {
+							postMessage({'msg':'STL write completed.', 'url':fileEntry.toURL()});
+						};
+
+	  					fw.write(builder.getBlob('text/plain'));						
+					});
+	            };
 
 				fileWriter.onerror = function(e) {
 					postMessage({'msg':'STL write failed: ' + e.toString()});
 				};
-    
-                var builder = new WebKitBlobBuilder();
-                for (var i = 0; i < stlOutput.length; i++){
-                	builder.append(stlOutput[i]);
-                }
-
-  				fileWriter.write(builder.getBlob());
-            }, function() {});
-        }, function() {});
-    }, function() {});
+				fileWriter.truncate(0);					
+	            
+	        }, function(error) {errorHandler});
+	    }, function(error) {errorHandler});
+	}, function(error) {errorHandler});
 
 }
 
