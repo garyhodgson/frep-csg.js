@@ -1,10 +1,11 @@
 
-var angleX = 20;
-var angleY = 20;
+var angleX = 285;
+var angleY = 0;
+var angleZ = 285;
 var viewer;
 var depth = 20;
-var xPos = 0;
-var yPos = 0;
+var xPos = -3;
+var yPos = -2;
 
 // A viewer is a WebGL canvas that lets the user view a mesh. The user can
 // tumble it around by dragging the mouse.
@@ -82,10 +83,17 @@ function Viewer(width, height, depth, id) {
         if (e.shiftKey){
           xPos += e.deltaX/3;
           yPos -= e.deltaY/3;
-        } else {
+        } else if (e.ctrlKey){
           angleY += e.deltaX * 2;
+          if (angleY>=360)angleY=0;
+          if (angleY<0)angleY=360;          
+        } else {
+          angleZ += e.deltaX * 2;
+          if (angleZ>=360)angleZ=0;
+          if (angleZ<0)angleZ=360;
           angleX += e.deltaY * 2;
-          angleX = Math.max(-90, Math.min(90, angleX));
+          if (angleX>=360)angleX=0;
+          if (angleX<0)angleX=360;
         }
 
         viewer.gl.ondraw();
@@ -101,6 +109,13 @@ function Viewer(width, height, depth, id) {
     gl.translate(xPos, yPos, -depth);
     gl.rotate(angleX, 1, 0, 0);
     gl.rotate(angleY, 0, 1, 0);
+    gl.rotate(angleZ, 0, 0, 1);
+    $('#currAngleX').html(angleX);
+    $('#currAngleY').html(angleY);
+    $('#currAngleZ').html(angleZ);
+    $('#currPosX').html(xPos.toFixed(2));
+    $('#currPosY').html(yPos.toFixed(2));
+    $('#currDepth').html(depth);
 
     if (!Viewer.lineOverlay) gl.enable(gl.POLYGON_OFFSET_FILL);
     that.lightingShader.draw(that.mesh, gl.TRIANGLES);
@@ -120,6 +135,35 @@ function Viewer(width, height, depth, id) {
 
   this.hasMesh = function(){
     return this.mesh != undefined; 
+  }
+
+  this.cameraAngle = function(X,Y,Z){
+    angleX = X;
+    angleY = Y;
+    angleZ = Z;
+    gl.ondraw();
+  }
+
+  this.cameraPosition = function(X,Y){
+    xPos = X;
+    yPos = Y;
+    gl.ondraw();
+  }
+
+  this.cameraZoom = function(d){
+    depth = d || 20;
+    gl.ondraw();
+  }
+
+  this.canvasResize = function(width,height){
+    gl.canvas.width = width;
+    gl.canvas.height = height;
+    gl.viewport(0, 0, width, height);
+    gl.matrixMode(gl.PROJECTION);
+    gl.loadIdentity();
+    gl.perspective(45, width / height, 0.5, 1000);
+    gl.matrixMode(gl.MODELVIEW);
+    gl.ondraw();
   }
 
   $('#'+id).append(this.gl.canvas);

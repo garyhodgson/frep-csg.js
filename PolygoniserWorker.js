@@ -1,5 +1,5 @@
 
-importScripts('frep-csg.js');
+importScripts('frep-csg.js', 'js/underscore-min.js');
 
 onmessage = function(e){
 
@@ -9,24 +9,24 @@ onmessage = function(e){
 	var polygonizer = new CSG.Polygonizer(this, 
 			e.data.boundingBox.min, 
 			e.data.boundingBox.max,
-			{x:e.data.grid.x,y:e.data.grid.y,z:e.data.grid.z},
+			e.data.grid,
 			e.data.isosurface,
 			localCsg);
 
 	var vertices = new Array();
 	var normals = new Array();
 	var indices = new Array();
+	var colors = new Array();
 
-	polygonizer.polygonize(vertices, normals, indices);
+	polygonizer.polygonize(vertices, normals, indices, colors);
 
-	postMessage({'worker':e.data.worker,'msg':"Worker("+e.data.worker+"): Vertices: "+vertices.length+ "; Normals: "+ normals.length+ "; Indices: "+ indices.length+";", 
-				 'results':{'vertices':vertices, 'normals':normals, 'indices':indices}})
+	postMessage({'worker':e.data.worker,'results':{'vertices':vertices, 'normals':normals, 'indices':indices, 'colors':colors}})
 
 }
 
 
 /** Taken from Hyperfun Applet Polygonizer by Yuichiro Goto **/
-CSG.Polygonizer = function(worker, min,max,div,isovalue,csg) {
+CSG.Polygonizer = function(worker, min, max, div, isovalue, csg) {
 	this.worker = worker;
 	// Lower left front corner of the bounding box
 	this.xMin = min.x;
@@ -65,10 +65,10 @@ CSG.Polygonizer.prototype = {
 		var y = v[1];
 		var z = v[2];
 
-		var f = this.csg.call([x, y, z]);
-		var nx = -(this.csg.call([x + this.ndx, y, z]) - f) / this.ndx;
-		var ny = -(this.csg.call([x, y + this.ndy, z]) - f) / this.ndy;
-		var nz = -(this.csg.call([x, y, z + this.ndz]) - f) / this.ndz;
+		var f = this.csg.call([x, y, z])[0];
+		var nx = -(this.csg.call([x + this.ndx, y, z])[0] - f) / this.ndx;
+		var ny = -(this.csg.call([x, y + this.ndy, z])[0] - f) / this.ndy;
+		var nz = -(this.csg.call([x, y, z + this.ndz])[0] - f) / this.ndz;
 
 		var len = Math.sqrt(nx * nx + ny * ny + nz * nz);
 		if (len > 0.0) {
@@ -78,16 +78,19 @@ CSG.Polygonizer.prototype = {
 		}
 		return [ nx, ny, nz ];
 	},
-	sample: function(plane, z) {
+	sample: function(plane, z, attrs) {
+		
 		for (var j = 0; j <= this.yDiv; j++) {
 			var y = this.yMin + j * this.dy;
 			for (var i = 0; i <= this.xDiv; i++) {
 				var x = this.xMin + i * this.dx;
-				plane[j][i] = this.csg.call([x,y,z]);
+				var result = this.csg.call([x,y,z])
+				plane[j][i] = result[0];
+				attrs[j][i] = result[1];
 			}
 		}
 	},
-	polygonize: function(vertices, normals, indices) {
+	polygonize: function(vertices, normals, indices, colors) {
 
 		var eps = (this.isovalue == 0.0) ? 1.0E-5 : this.isovalue * 1.0E-5;
 
@@ -110,6 +113,11 @@ CSG.Polygonizer.prototype = {
 			lowerPlane[i] = new Array(this.xDiv + 1);
 		}
 
+		var attrs = new Array(this.yDiv + 1);
+		for (var i = 0; i < upperPlane.length; i++) {
+			attrs[i] = new Array(this.xDiv + 1);
+		}
+
 		var connectionSwitches = new Array(6);
 		for (var i = 0; i < connectionSwitches.length; i++) {
 			connectionSwitches[i] = 0;
@@ -128,13 +136,13 @@ CSG.Polygonizer.prototype = {
 		this.ndy = 0.001 * this.dy;
 		this.ndz = 0.001 * this.dz;
 
-		this.sample(lowerPlane, this.zMin);
+		this.sample(lowerPlane, this.zMin, attrs);
 
 		for (var k = 0; k < this.zDiv; k++) {
 			var zLower = this.zMin + k * this.dz;
 			var zUpper = this.zMin + (k+1) * this.dz;
 			
-			this.sample(upperPlane, zUpper);
+			this.sample(upperPlane, zUpper, attrs);
 
 			this.worker.postMessage({'progress':k})
 
@@ -232,6 +240,9 @@ CSG.Polygonizer.prototype = {
 					positionsI[7][1] = j;
 					positionsI[7][2] = k + 1;
 
+
+					
+
 					// Find the cube edges which have intersection points with the isosurface
 					for (var edgeIndex = 0; edgeIndex < 12; edgeIndex++) {
 						var edge = cube.getEdge(edgeIndex);
@@ -243,7 +254,10 @@ CSG.Polygonizer.prototype = {
 							} else {
 								var t = (this.isovalue - values[edge.getStartVertexIndex()]) / (values[edge.getEndVertexIndex()] - values[edge.getStartVertexIndex()]);
 								var v = this.lerp(t, positionsD[edge.getStartVertexIndex()], positionsD[edge.getEndVertexIndex()]);
+								
 								vertices.push(v);
+								colors.push(attrs[j][i].color || [1,1,1]);
+								
 								if (normals !== undefined) {
 									normals.push(this.calcNormal(v));
 								}

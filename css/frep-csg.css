@@ -1,9 +1,13 @@
-.editor { width: 39%; height: 600px; }
-.viewer { float: right; width: 60%; height: 600px; background: #EEE;}
-.controls { float: left; width: 38%; padding: 5px; margin-top: 5px; border:1px dashed grey; }
-.info {  width: 59%; height: 200px; padding: 5px; margin: 5px; }
+#panel1 { width: 39%;}
+#panel2 { float: right; width: 60%;}
+.editor { width: 100%; padding: 5px; height: 500px; }
+.viewer { width: 100%; height: 600px; background: #EEE;}
+.controls { width: 100%; padding: 5px; margin-top: 5px; }
+.info {  width: 100%; height: 200px; padding: 5px; margin: 5px; }
+.log {  width: 100%; height: 100%; }
+#viewerStats { font-size: 0.8em;}
+
 input[type=number] { width: 60px;}
-#grid input { width: 30px;}
 canvas { cursor: move; }
 .updated {	background-color: #C2F0C2; }
 

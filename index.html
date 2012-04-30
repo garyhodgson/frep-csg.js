@@ -8,6 +8,7 @@
 	<script src="js/sisyphus.min.js"></script>
 	<script src="js/date.format.js"></script>
 	<script src="js/lightgl.js"></script>
+	<script src="js/underscore-min.js"></script>
 
 	<script src="WorkerConsole.js"></script>
 
@@ -21,9 +22,9 @@
 		function notify(msg, append){
 			var d = new Date();
 			if (append){
-				$('#info1').append(msg);	
+				$('#log1').append(msg);	
 			} else {
-				$('#info1').prepend(d.format('h:MM:ss > ') + msg+"\n");	
+				$('#log1').prepend(d.format('h:MM:ss > ') + msg+"\n");	
 			}
 		}
 
@@ -39,7 +40,7 @@
 			$('#spinner').hide();
 		}
 
-		var defaultEditorContent = "var a = CSG.sphere({center:[3,3,3], radius:2});\nvar b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4});\n\nreturn  b.union(a);\n\n//return  b.intersect(a);\n\n//return  b.subtract(a);\n\n//return  a.subtract(b);\n\n//return CSG.torusX({center:[2,2,2], R:2, r0:1});\n\n//return CSG.gyroid({center:[2,2,2], t:0.1});\n\n//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});";
+		var defaultEditorContent = "var a = CSG.sphere({center:[3,3,3], radius:2}, {color:[1,0,0]});\nvar b = CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4},{color:[0,1,0]});\n\nreturn  b.union(a);\n\n//return  b.intersect(a);\n\n//return  b.subtract(a);\n\n//return  a.subtract(b);\n\n//return CSG.torusX({center:[2,2,2], R:2, r0:1});\n\n//return CSG.gyroid({center:[2,2,2], t:0.1});\n\n//return CSG.ellipsoid({center:[2,2,2], a:1,b:2,c:3}, {color:[0,5,5]});";
 
 		function getBoundingBox(){
 			var minX = parseFloat($('#boundaryBoxMinX').val());
@@ -84,8 +85,11 @@
 			}
 
 			var model;
+
+			var viewerWidth = $('#viewer1').width();
+			var viewerHeight = $('#viewer1').height();
 			
-			new Viewer(800, 600, 120, 'viewer1');
+			new Viewer(viewerWidth, viewerHeight, 20, 'viewer1');
 
 			if (localStorage.getItem("lastFRepEdit") != undefined){
 				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
@@ -95,21 +99,26 @@
 
 			$('#polygonise').click(function(e){			
 
-
-
-				//alert("remember multi workers returns weird results....")
 				working();
-				resetProgress($('#grid').val());
+				resetProgress($('#gridZ').val());
 
 				var f = new Function('', $('#editor1').val());
 				model = f();
 
-				var grid = parseFloat($('#grid').val());
+				var gridX = parseFloat($('#gridX').val());
+				var gridY = parseFloat($('#gridY').val());
+				var gridZ = parseFloat($('#gridZ').val());
 				var numWorkers = parseFloat($('#numWorkers').val());				
 				var isosurface = parseFloat($('#isosurface').val());
 
-				model.polygonise(grid, getBoundingBox(), isosurface, numWorkers, function(mesh){
+				model.polygonise({x:gridX,y:gridY,z:gridZ}, getBoundingBox(), isosurface, numWorkers, function(mesh){
 					viewer.updateMesh(mesh);
+
+					if ($('#zoomCentre').attr('checked') == 'checked'){
+						$('#cameraCentre').click();
+						$('#cameraZoom').click();
+					}
+
 					notworking();
 					setTimeout(function(){
 						resetProgress();
@@ -155,6 +164,14 @@
 				$('#boundaryBoxMinX').val(v).change();
 				$('#boundaryBoxMinY').val(v).change();
 				$('#boundaryBoxMinZ').val(v).change();
+			});
+
+			$('#gridAll').blur(function(){
+				var v = $(this).val();
+				if (v == '') return;
+				$('#gridX').val(v).change();
+				$('#gridY').val(v).change();
+				$('#gridZ').val(v).change();
 			});
 
 			$('#boundaryBoxMaxAll').blur(function(){
@@ -208,21 +225,79 @@
 				}
 			});
 
+			$('#cameraX').click(function(e){
+				viewer.cameraAngle(270,0,0);
+			});
+			$('#cameraY').click(function(e){
+				viewer.cameraAngle(270,0,270);
+			});
+			$('#cameraZ').click(function(e){
+				viewer.cameraAngle(0,0,0);
+			});
+			$('#cameraIso').click(function(e){
+				viewer.cameraAngle(315,0,315);
+			});
+			$('#cameraCentre').click(function(e){
+				var minX = parseFloat($('#boundaryBoxMinX').val());
+				var minY = parseFloat($('#boundaryBoxMinY').val());
+
+				var posX = (minX + parseFloat($('#boundaryBoxMaxX').val())) / 2;
+				var posY = (minY + parseFloat($('#boundaryBoxMaxY').val())) / 2;
+
+				posX -= Math.abs(minX)/2;
+				posY -= Math.abs(minY)/2;
+
+				viewer.cameraPosition(posX, posY);
+			});
+			$('#cameraZoom').click(function(e){
+				var maxBB = 0;
+				maxBB = Math.max(maxBB,$('#boundaryBoxMaxX').val());
+				maxBB = Math.max(maxBB,$('#boundaryBoxMaxY').val());
+				maxBB = Math.max(maxBB,$('#boundaryBoxMaxZ').val());
+				viewer.cameraZoom(maxBB*3);
+
+			});
+
 			if ($('#polygoniseOnLoad').attr('checked')) {
 				$('#polygonise').click();
 			}
+			var resizeTimeout;
+			window.onresize = function() {
+				clearTimeout(resizeTimeout);
+				resizeTimeout = setTimeout(function() {
+					viewerWidth = $('#viewer1').width();
+					viewerHeight = $('#viewer1').height();
+					viewer.canvasResize(viewerWidth, viewerHeight);
+				}, 250); // set for 1/4 second.  May need to be adjusted.
+			};
 
 		});
 	</script>
 </head>
 <body>
 
-
-	<textarea id="editor1" class="editor"></textarea>
-	<div id="viewer1" class="viewer">
+<div id="panel2">
+	<div id="viewer1" class="viewer"></div>
+	<div id="info1" class="info">
+		<span id="viewerStats">
+			X&deg;: <span id="currAngleX"></span>
+			Y&deg;: <span id="currAngleY"></span>
+			Z&deg;: <span id="currAngleZ"></span>
+			&nbsp;
+			X: <span id="currPosX"></span>
+			Y: <span id="currPosY"></span>
+			&nbsp;
+			D: <span id="currDepth"></span>
+		</span>
+		<textarea id="log1" class="log" readonly></textarea>
 	</div>
+	<br>
+	<input type="button" value="Clear" id="clear" name="clear" />
+</div>
 
-	<br clear="both">
+<div id="panel1">
+
+	<textarea id="editor1" class="editor" tabindex="1"></textarea>
 
 	<div id="controls1" class="controls">
 		<form id="controlsForm">
@@ -230,27 +305,44 @@
 			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />
 			&nbsp;<input type="button" value="STL" id="stl" name="stl" />
 			&nbsp;<input type="button" value="Reset" id="resetEditor" name="resetEditor" />
-			&nbsp;<img id="spinner" src="images/spinner.gif">
-			<br>
-				<progress id="zProgress" max="100" value="0"></progress>
+			<progress id="zProgress" max="100" value="0"></progress>&nbsp;<img id="spinner" src="images/spinner.gif">
 			<br>
 		
-			Grid: <input class="setting" id="grid" name="grid" type="number" value="40"/>&nbsp;Isosurface: <input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1"/><br>
-			Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4"/><br>
-				
+			<fieldset id="grid">
+				<legend>Grid</legend>
+				x: <input class="setting" id="gridX" name="gridX" type="number" value="40" min="0" tabindex="11"/>
+				y: <input class="setting" id="gridY" name="gridY" type="number" value="40" min="0" tabindex="12"/>
+				z: <input class="setting" id="gridZ" name="gridZ" type="number" value="40" min="0" tabindex="13"/>
+				&nbsp;(All: <input id="gridAll" name="gridAll" class="sisyphusignore" type="number" value="" min="0" tabindex="10"/>)
+			</fieldset>
+			<fieldset>
+				<legend>Misc.</legend>
+				Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4" step="1" max="8", min="0" tabindex="20"/>
+				&nbsp;Isosurface: <input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1" tabindex="70"/>
+			</fieldset>		
+			<fieldset id="camera">
+				<legend>Camera</legend>
+				<input type="button" id="cameraX" value="X"/>
+				<input type="button" id="cameraY" value="Y"/>
+				<input type="button" id="cameraZ" value="Z"/>
+				<input type="button" id="cameraIso" value="Iso"/>
+				<input type="button" id="cameraCentre" value="Centre"/>
+				<input type="button" id="cameraZoom" value="Zoom"/>
+			</fieldset>
+
 			<fieldset id="boundaryBox">
 				<legend>Boundary Box</legend>
 				Min: 
-				x <input class="setting" id="boundaryBoxMinX" name="boundaryBoxMinX" type="number" value="-10" step="0.5"/>
-				y <input class="setting" id="boundaryBoxMinY" name="boundaryBoxMinY" type="number" value="-10" step="0.5"/>
-				z <input class="setting" id="boundaryBoxMinZ" name="boundaryBoxMinZ" type="number" value="-10" step="0.5"/>
-				&nbsp;(All: <input id="boundaryBoxMinAll" name="boundaryBoxMinAll" class="sisyphusignore" type="number" value="" step="0.5"/>)
+				x: <input class="setting" id="boundaryBoxMinX" name="boundaryBoxMinX" type="number" value="-10" step="0.5" tabindex="50" />
+				y: <input class="setting" id="boundaryBoxMinY" name="boundaryBoxMinY" type="number" value="-10" step="0.5" tabindex="51" />
+				z: <input class="setting" id="boundaryBoxMinZ" name="boundaryBoxMinZ" type="number" value="-10" step="0.5" tabindex="52" />
+				&nbsp;(All: <input id="boundaryBoxMinAll" name="boundaryBoxMinAll" class="sisyphusignore" type="number" value="" step="0.5" tabindex="30"/>)
 				<br>
 				Max: 
-				x <input class="setting" id="boundaryBoxMaxX" name="boundaryBoxMaxX" type="number" value="15" step="0.5"/>
-				y <input class="setting" id="boundaryBoxMaxY" name="boundaryBoxMaxY" type="number" value="15" step="0.5"/>
-				z <input class="setting" id="boundaryBoxMaxZ" name="boundaryBoxMaxZ" type="number" value="15" step="0.5"/>
-				&nbsp;(All: <input id="boundaryBoxMaxAll" name="boundaryBoxMaxAll" class="sisyphusignore" type="number" value="" step="0.5"/>)
+				x: <input class="setting" id="boundaryBoxMaxX" name="boundaryBoxMaxX" type="number" value="15" step="0.5" tabindex="60" />
+				y: <input class="setting" id="boundaryBoxMaxY" name="boundaryBoxMaxY" type="number" value="15" step="0.5" tabindex="61" />
+				z: <input class="setting" id="boundaryBoxMaxZ" name="boundaryBoxMaxZ" type="number" value="15" step="0.5" tabindex="62" />
+				&nbsp;(All: <input id="boundaryBoxMaxAll" name="boundaryBoxMaxAll" class="sisyphusignore" type="number" value="" step="0.5" tabindex="40"/>)
 				<br>
 				<a href="javascript://" id="findBoundingBox">calculate<a/>
 			</fieldset>
@@ -258,12 +350,12 @@
 			<br>
 			LineOverlay: <input class="setting" id="lineOverlay" name="lineOverlay" type="checkbox"/>
 			<br>
-			Polygonise on Load: <input class="setting" id="polygoniseOnLoad" name="polygoniseOnLoad" type="checkbox"/>
+			Polygonise on Load: <input class="setting" id="polygoniseOnLoad" name="polygoniseOnLoad" type="checkbox"/> &nbsp;
+			Zoom&amp;Centre: <input class="setting" id="zoomCentre" name="zoomCentre" type="checkbox"/>
 		</form>
 	</div>
+</div>
 
-<textarea id="info1" class="info" readonly></textarea>
-<br>
-<input type="button" value="Clear" id="clear" name="clear" />
+
 </body>
 </html>

@@ -1,5 +1,5 @@
 
-importScripts('frep-csg.js');
+importScripts('frep-csg.js', 'js/underscore-min.js');
 
 var BOUNDING_BOX_ACCURACY_COARSE = 2;
 var BOUNDING_BOX_ACCURACY_FINE = 0.5;
@@ -23,6 +23,52 @@ Algorithm:
 			yes -> return value
 			no -> repeat in direction towards center
 */
+
+onmessage = function(e) {
+	if (!e.data){
+		return
+	}
+	var f = eval("("+e.data.funcDef+")");
+	localCsg = new CSG(e.data.params, e.data.attrs, f);
+	
+	var axis = e.data.axis
+	var dir = e.data.dir
+	var val = 0;
+	var center = [0,0,0];
+
+	if (e.data.params && e.data.params.center) center = e.data.params.center;
+
+	switch (dir){
+		case 'min':
+			switch (axis){
+				case 'x':
+					val = planeSearch('y', 'z', 'x', dir);
+					break;
+				case 'y': 
+					val = planeSearch('x', 'z', 'y', dir);
+					break;
+				case 'z':
+					val = planeSearch('x', 'y', 'z', dir);
+					break;
+			}
+			break;
+		case 'max':
+			switch (axis){
+				case 'x':
+					val = planeSearch('y', 'z', 'x', dir);
+					break;
+				case 'y':
+					val = planeSearch('x', 'z', 'y', dir);
+					break;
+				case 'z':
+					val = planeSearch('x', 'y', 'z', dir);
+					break;
+			}
+			break;
+	}
+	self.postMessage({'axis':axis,'dir':dir,'val':val});
+
+}
 
 function samplePlane(k, func, plane, step){
 
@@ -74,7 +120,7 @@ function planeSearch(i, j, k, dir){
 	
 	var plane = {i:{min:MIN_BOUNDING_BOX.min[i],max:MIN_BOUNDING_BOX.max[i]}, j:{min:MIN_BOUNDING_BOX.min[j],max:MIN_BOUNDING_BOX.max[j]}};
 
-	var f = new Function(i, j, k, "return localCsg.call([x,y,z])")
+	var f = new Function(i, j, k, "return localCsg.call([x,y,z])[0]")
 
 	var targetPoint = MIN_BOUNDING_BOX[dir][k];
 
@@ -97,49 +143,3 @@ function planeSearch(i, j, k, dir){
 	return recursivePlaneSearch(targetPoint, f, plane, delta, lastTargetPoint);
 }
 
-
-onmessage = function(e) {
-	if (!e.data){
-		return
-	}
-	var f = eval("("+e.data.funcDef+")");
-	localCsg = new CSG(e.data.params, e.data.attrs, f);
-	
-	var axis = e.data.axis
-	var dir = e.data.dir
-	var val = 0;
-	var center = [0,0,0];
-
-	if (e.data.params && e.data.params.center) center = e.data.params.center;
-
-	switch (dir){
-		case 'min':
-			switch (axis){
-				case 'x':
-					val = planeSearch('y', 'z', 'x', dir);
-					break;
-				case 'y': 
-					val = planeSearch('x', 'z', 'y', dir);
-					break;
-				case 'z':
-					val = planeSearch('x', 'y', 'z', dir);
-					break;
-			}
-			break;
-		case 'max':
-			switch (axis){
-				case 'x':
-					val = planeSearch('y', 'z', 'x', dir);
-					break;
-				case 'y':
-					val = planeSearch('x', 'z', 'y', dir);
-					break;
-				case 'z':
-					val = planeSearch('x', 'y', 'z', dir);
-					break;
-			}
-			break;
-	}
-	self.postMessage({'axis':axis,'dir':dir,'val':val});
-
-}
