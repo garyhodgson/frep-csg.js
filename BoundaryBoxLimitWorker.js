@@ -1,8 +1,7 @@
 
 importScripts('frep-csg.js', 'js/underscore-min.js');
 
-var BOUNDING_BOX_ACCURACY_COARSE = 2;
-var BOUNDING_BOX_ACCURACY_FINE = 0.5;
+var BOUNDING_BOX_ACCURACY = 0.5;
 var BOUNDING_BOX_FIXED_PRECISION = 2;
 
 /*
@@ -73,44 +72,46 @@ onmessage = function(e) {
 function samplePlane(k, func, plane, step){
 
 	//shortcut - check middle point
-	if (func(plane.i.max/2,plane.j.max/2,k) >= 0){
-		//console.log(""+k+"-> hit (*)");
+	var val = func(plane.i.max/2,plane.j.max/2,k)
+	if (val >= 0){
+		//console.log(""+k+"-> hit (*) ");
 		return true;
 	}
 
 	for (var i = plane.i.min; i <= plane.i.max; i+=step){
 		for (var j = plane.j.min; j <= plane.j.max; j+=step){
-			if (func(i,j,k) >= 0){
-				//console.log(""+k+"-> hit");
+			var val2 = func(i,j,k)
+			if (val2 >= 0){
+				//console.log(""+k+"-> hit ");
 				return true;
 			}
 		}
 	}
-	//console.log(""+k+"-> miss");
+	//console.log(""+k+"-> miss ");
 	return false
 }
 
-function recursivePlaneSearch(targetPoint, f, plane, delta, lastMiss){
-	//console.log("tp, d, lM:", targetPoint, delta, lastMiss);
+function recursivePlaneSearch(targetPoint, f, plane, delta, lastMiss, lastHit){
+	//console.log("tp:",targetPoint, "d:", delta, "lM:", lastMiss, "lH:", lastHit);
 	
-	found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY_COARSE);
+	found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY);
 
 	if (found){
-		if (Math.abs(delta) <= BOUNDING_BOX_ACCURACY_COARSE+1){
-			return lastMiss;  // return last point which did not hit
+		if (Math.abs(delta) <= BOUNDING_BOX_ACCURACY){
+			return lastMiss.toFixed(BOUNDING_BOX_FIXED_PRECISION);
 		} else {
-			var newDelta = targetPoint - (targetPoint/2)
-			var newTargetPointAwayFromCenter = targetPoint + newDelta;
-			return recursivePlaneSearch(newTargetPointAwayFromCenter, f, plane, newDelta, lastMiss);
+			var newTargetPointAwayFromCenter = (lastMiss + targetPoint)/2;
+			var newDelta = targetPoint - newTargetPointAwayFromCenter;
+			return recursivePlaneSearch(newTargetPointAwayFromCenter, f, plane, newDelta, lastMiss, targetPoint);
 		}
 
 	} else {
-		if (Math.abs(delta) <= BOUNDING_BOX_ACCURACY_COARSE+1){
-			return targetPoint;  // return this point as it did not hit
+		if (Math.abs(delta) <= BOUNDING_BOX_ACCURACY){
+			return targetPoint.toFixed(BOUNDING_BOX_FIXED_PRECISION);
 		} else {
-			var newDelta = targetPoint - (targetPoint/2)
-			var newTargetPointTowardsCenter = targetPoint - newDelta;
-			return recursivePlaneSearch(newTargetPointTowardsCenter, f, plane, newDelta, targetPoint);
+			var newTargetPointTowardsCenter = (lastHit + targetPoint)/2;
+			var newDelta = targetPoint + newTargetPointTowardsCenter;
+			return recursivePlaneSearch(newTargetPointTowardsCenter, f, plane, newDelta, targetPoint, lastHit);
 		}
 	}
 
@@ -124,13 +125,13 @@ function planeSearch(i, j, k, dir){
 
 	var targetPoint = MIN_BOUNDING_BOX[dir][k];
 
-	var found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY_COARSE);
+	var found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY);
 
 	if (!found) return targetPoint; // model within min boundary
 
 	targetPoint = MAX_BOUNDING_BOX[dir][k];
 
-	found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY_COARSE);
+	found = samplePlane(targetPoint, f, plane, BOUNDING_BOX_ACCURACY);
 
 	if (found) return targetPoint; // model touches max boundary
 
@@ -140,6 +141,6 @@ function planeSearch(i, j, k, dir){
 
 	var delta = lastTargetPoint - targetPoint;
 
-	return recursivePlaneSearch(targetPoint, f, plane, delta, lastTargetPoint);
+	return recursivePlaneSearch(targetPoint, f, plane, delta, lastTargetPoint, null);
 }
 

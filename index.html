@@ -244,8 +244,8 @@
 				var posX = (minX + parseFloat($('#boundaryBoxMaxX').val())) / 2;
 				var posY = (minY + parseFloat($('#boundaryBoxMaxY').val())) / 2;
 
-				posX -= Math.abs(minX)/2;
-				posY -= Math.abs(minY)/2;
+				if (minX == -5) posX -= Math.abs(minX)/2;
+				if (minY == -5) posY -= Math.abs(minY)/2;
 
 				viewer.cameraPosition(posX, posY);
 			});
@@ -261,6 +261,7 @@
 			if ($('#polygoniseOnLoad').attr('checked')) {
 				$('#polygonise').click();
 			}
+
 			var resizeTimeout;
 			window.onresize = function() {
 				clearTimeout(resizeTimeout);
