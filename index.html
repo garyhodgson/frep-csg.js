@@ -4,6 +4,7 @@
 
 	<script src="js/jquery.js"></script>
 	<script src="js/jquery.mousewheel.js"></script>
+	<script src="js/jquery.textarea.js"></script>
 	<script src="js/modernizr.min.js"></script>
 	<script src="js/sisyphus.min.js"></script>
 	<script src="js/date.format.js"></script>
@@ -88,14 +89,37 @@
 
 			var viewerWidth = $('#viewer1').width();
 			var viewerHeight = $('#viewer1').height();
-			
+
 			new Viewer(viewerWidth, viewerHeight, 20, 'viewer1');
+
+			$('#controlsForm').sisyphus({excludeFields: $('.sisyphusignore')});
+			$('#editor1').tabby();
 
 			if (localStorage.getItem("lastFRepEdit") != undefined){
 				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
 			} else {
 				$('#editor1').val(defaultEditorContent);
 			}
+
+			$('#sharpen').change(function(){
+				sharpen = ($(this).attr('checked') == 'checked');
+			});
+			$('#sharpen').change();
+
+			$('#showNormals').change(function(){
+				showNormals = ($(this).attr('checked') == 'checked');
+			});
+			$('#showNormals').change();
+
+			$('#showGrid').change(function(){
+				showGrid = ($(this).attr('checked') == 'checked');
+			});
+			$('#showGrid').change();
+
+			$('#showAxis').change(function(){
+				showAxis = ($(this).attr('checked') == 'checked');
+			});
+			$('#showAxis').change();
 
 			$('#polygonise').click(function(e){			
 
@@ -130,8 +154,6 @@
 			$('#editor1').live('keyup blur', function(){
 				localStorage.setItem("lastFRepEdit", $(this).val());
 			});
-
-			$('#controlsForm').sisyphus({excludeFields: $('.sisyphusignore')});
 
 			$('#lineOverlay').change(function(){
 				Viewer.lineOverlay = ($(this).attr('checked') == 'checked');
@@ -240,12 +262,14 @@
 			$('#cameraCentre').click(function(e){
 				var minX = parseFloat($('#boundaryBoxMinX').val());
 				var minY = parseFloat($('#boundaryBoxMinY').val());
+				var maxX = parseFloat($('#boundaryBoxMaxX').val());
+				var maxY = parseFloat($('#boundaryBoxMaxY').val());
 
-				var posX = (minX + parseFloat($('#boundaryBoxMaxX').val())) / 2;
-				var posY = (minY + parseFloat($('#boundaryBoxMaxY').val())) / 2;
+				var posX = (minX + maxX) / 2;
+				var posY = (minY + maxY) / 2;
 
-				if (minX == -5) posX -= Math.abs(minX)/2;
-				if (minY == -5) posY -= Math.abs(minY)/2;
+				if ((minX == -5) && (maxX >= 5)) posX -= Math.abs(minX)/2;
+				if ((minY == -5) && (maxY >= 5)) posY -= Math.abs(minY)/2;
 
 				viewer.cameraPosition(posX, posY);
 			});
@@ -278,12 +302,12 @@
 <body>
 
 <div id="panel2">
-	<div id="viewer1" class="viewer"></div>
+	<div id="viewer1" class="viewer" oncontextmenu="return false;"></div>
 	<div id="info1" class="info">
 		<span id="viewerStats">
-			X&deg;: <span id="currAngleX"></span>
-			Y&deg;: <span id="currAngleY"></span>
-			Z&deg;: <span id="currAngleZ"></span>
+			<span id="X">X</span>&deg;: <span id="currAngleX"></span>
+			<span id="Y">Y</span>&deg;: <span id="currAngleY"></span>
+			<span id="Z">Z</span>&deg;: <span id="currAngleZ"></span>
 			&nbsp;
 			X: <span id="currPosX"></span>
 			Y: <span id="currPosY"></span>
@@ -308,7 +332,11 @@
 			&nbsp;<input type="button" value="Reset" id="resetEditor" name="resetEditor" />
 			<progress id="zProgress" max="100" value="0"></progress>&nbsp;<img id="spinner" src="images/spinner.gif">
 			<br>
-		
+			Sharpen: <input class="setting" id="sharpen" name="sharpen" type="checkbox"/>
+			&nbsp;Show: Normals: <input class="setting" id="showNormals" name="showNormals" type="checkbox"/>
+			&nbsp;Grid: <input class="setting" id="showGrid" name="showGrid" type="checkbox"/>
+			&nbsp;Axis: <input class="setting" id="showAxis" name="showAxis" type="checkbox"/>
+			<br>
 			<fieldset id="grid">
 				<legend>Grid</legend>
 				x: <input class="setting" id="gridX" name="gridX" type="number" value="40" min="0" tabindex="11"/>

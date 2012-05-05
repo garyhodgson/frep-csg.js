@@ -1,5 +1,11 @@
 var ALPHA = 0.0;
-var EPS = 0.0;
+var EPS = 0.1e-5;
+var sharpen = false;
+var showNormals = false;
+var showGrid = false;
+var gridMin = -10;
+var gridMax = 10;
+var showAxis = false;
 
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
 var MIN_BOUNDING_BOX = {min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
@@ -82,6 +88,54 @@ CSG.prototype = {
 
 						mesh = new GL.Mesh({ normals: true, colors: true });
 
+//TMP
+if (sharpen){
+						truncateDecimals = function (number) {
+						    return Math[number < 0 ? 'ceil' : 'floor'](number);
+						};
+
+						var verticesLength = that.vertices.length;
+						for (var i = 0; i < verticesLength; i++) {
+							var v = $.extend(true, [], that.vertices[i]);
+							var n = that.normals[i];
+							var r = that.call(v)
+							
+
+								var breakout = 3;
+								var newVal = r[0]
+								
+
+								var truncated = truncateDecimals(newVal.toFixed(2) * 10) / 10
+								//console.log("newval", truncated)
+
+								while (truncated != 0.0 && breakout >= 0) {
+
+									for (var i2 = 0; i2 < 3; i2++) {
+								//		console.log("     "+i2, that.vertices[i][i2], r[0])
+										that.vertices[i][i2] += n[i2] * (r[0]/5)
+								//		console.log("     *"+i2, that.vertices[i][i2])
+									}
+
+									newVal = that.call(that.vertices[i])[0]
+
+									truncated = truncateDecimals(newVal.toFixed(2) * 10) / 10
+
+								//	console.log(breakout, truncated)
+									breakout--
+
+								} 
+								if (breakout <= 0){ // revert
+									that.vertices[i] = v;
+								}
+
+								//that.vertices[i][i2] += (that.vertices[i][i2]+n[i2]) * 2;
+
+							
+							//console.log(that.vertices[i], n,  that.call(that.vertices[i])[0])
+							//console.log(that.call(that.vertices[i])[0])
+						}
+}
+//TMP
 						for (var i = 2; i < that.indices.length; i+=3) {
 							mesh.triangles.push([that.indices[i-2], that.indices[i - 1], that.indices[i]]);
 						}
@@ -90,7 +144,7 @@ CSG.prototype = {
 						mesh.normals = that.normals;
 						mesh.colors = that.colors;
 						mesh.computeWireframe();
-
+						
 						callback(mesh);
 					}
 				}
@@ -128,6 +182,7 @@ CSG.prototype = {
 		stlOutputWorker.postMessage({'vertices':this.vertices,'indices':this.indices});
 	},
 	union: function(otherCsg){
+		// from Frep Library in HyperFun Polygonizer
 		var params = [this.params, otherCsg.params];
 		var attrs =  [this.attrs, otherCsg.attrs];
 		var funcDef = "	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
@@ -725,5 +780,313 @@ CSG.coneZ = function(params, attrs){
 		var zt = (coords[2] - params.center[2]);
 		var result =  (zt*zt) - (xt*xt) - (yt*yt);
 		return [result, attrs];
+	});
+};
+
+
+// Catenoid
+// Definition: x^2 + y^2 − cosh( z )^2
+// Parameters:
+//		center - center array
+CSG.catenoid = function(params, attrs){
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var cosh = function(x) {return (Math.pow(Math.E, x)+Math.pow(Math.E, -x))/2;};
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
+		var result = Math.pow(x,2) + Math.pow(y,2) - Math.pow(cosh( z ),2);
+
+		return [result, attrs];
+	});
+};
+
+// Helicoid
+// Definition: cos( z ) y − x sin( z )
+// Parameters:
+//		center - center array
+CSG.helicoid = function(params, attrs){
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
+
+		var result = Math.cos(z)*y - x*Math.sin(z);
+
+		return [result, attrs];
+	});
+};
+
+// Orthocircles
+// from http://xahlee.org/surface/orthocircles/orthocircles.html
+// Parameters:
+//		center - center array
+//		ff
+// 		bb
+CSG.orthocircles = function(params, attrs){
+	params = params || {};
+	params.center = params.center || [0,0,0];
+
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0] - params.center[0];
+		var y = coords[1] - params.center[1];
+		var z = coords[2] - params.center[2];
+		    
+		var pow = Math.pow;
+		var ff = params.ff||0.075;
+		var bb = params.bb||3;
+
+		var result = (pow((pow(x,2) + pow(y,2) - 1),2) + pow(z,2))*(pow((pow(y,2) + pow(z,2) - 1),2) + pow(x,2))*(pow((pow(z,2) + pow(x,2) - 1),2) + pow(y,2))-pow(ff,2)*(1 + bb*(pow(x,2) + pow(y,2) + pow(z,2)));
+
+		return [result, attrs];
+	});	
+};
+
+// Primitive: Blobby object (Blinn 1982)
+// Definition: Sum b*exp(-a*r^2)-T
+// Parameters:
+//		bc - arrays of blob centers [[x,y,z],...]
+//		a - array of a coefficients
+//		b - array of b coefficients
+//		T - threshold value
+CSG.blobbyball = function(params, attrs){
+	return new CSG(params, attrs, function(coords, params, attrs){
+		var x = coords[0];
+		var y = coords[1];
+		var z = coords[2];
+
+		var blobcenters = params.bc;
+		var a = params.a;
+		var b = params.b;
+		var T = params.T;
+
+		if (blobcenters.length == 0) {
+			result = -1111111111111.0;
+		} else {
+			var blobby = 0.0;
+			for(i=0; i<blobcenters.length; i++)
+			{
+				var blobcenter = blobcenters[i];
+				var xt = x - blobcenter[0];
+				var yt = y - blobcenter[1];
+				var zt = z - blobcenter[2];
+				blobby = blobby + b[i]*Math.exp(-a[i]*(xt*xt+yt*yt+zt*zt));
+			}			
+			var result = (blobby - T);
+		}		
+
+		return [result, attrs];
+	});	
+};
+
+// Primitive:  Cauchy Line with Convolution Surface
+// Definition:  1 / (1 + S^2*R^2)^2
+//				R is the distance between primitive and x
+// Parameters:  T - threshold value
+//              S - control value for width of the kernel
+//              end - ending points coordinate array [[x,y,z],...]
+//              begin - beginning points coordinate array [[x,y,z],...]
+CSG.convLine = function(params, attrs){
+	return new CSG(params, attrs, function(coords, params, attrs){
+
+		var T = params.T;
+		var S = params.S;
+		var endPoints = params.end;
+		var beginPoints = params.begin;
+
+		var x = coords[0];
+		var y = coords[1];
+		var z = coords[2];
+
+		var SQ = function(x){ return ((x)*(x)); };
+		var f = 0.0;
+		var l,ax,ay,az,dx,dy,dz,xx,p,q, endPoint, startPoint;
+
+		for(var n=0;n<S.length;n++) {
+			end = endPoints[n]; 
+			begin = beginPoints[n];
+			l = Math.sqrt(SQ(end[0] - begin[0]) + SQ(end[1] - begin[1]) + SQ(end[2] - begin[2]));
+
+			if(l == 0.0) {
+			  console.error("ERROR:Tips of the segment take same coordinate!\n");
+			  return;
+			}
+
+			ax = (end[0] - begin[0]) / l;
+			ay = (end[1] - begin[1]) / l;
+			az = (end[2] - begin[2]) / l;
+
+			dx = x - begin[0];
+			dy = y - begin[1];
+			dz = z - begin[2];
+
+			xx = dx*ax + dy*ay + dz*az;
+			p = Math.sqrt(1 + S[n]*S[n] * ( dx*dx + dy*dy + dz*dz - xx*xx));
+			q = Math.sqrt(1 + S[n]*S[n] * ( dx*dx + dy*dy + dz*dz + l*l - 2*l*xx ));
+
+			f += xx / (2*p*p*(p*p + S[n]*S[n]*xx*xx)) + (l - xx) / (2*p*p*q*q)
+			  + (Math.atan(S[n]*xx/p) + Math.atan(S[n]*(l - xx)/p)) / (2*S[n]*p*p*p);
+
+		}
+
+		var result = f - T;
+
+		return [result, attrs];
+
+	});	
+};
+
+
+// Primitive:  Cauchy Arc with Convolution Surface
+// Definition:  1 / (1 + S^2*R^2)^2
+//				R is the distance between primitive and x
+// Parameters:  T - threshold value
+// 				S - control value for width of the kernel
+// 				rotate_angles - rotate angle
+// 				rotate_axes - rotate axis [[x,y,z],...]
+// 				theta - arc angle
+// 				radius - arc radius
+// 				centers - center of arc [[x,y,z],...]
+// By: Ken Yoshikawa
+CSG.convArc = function(params, attrs){
+	return new CSG(params, attrs, function(coords, params, attrs){
+
+		var T = params.T;
+		var S = params.S;
+		
+		var angle = params.rotate_angles;
+		var axes = params.rotate_axes;
+		var theta = params.theta;
+		var radius = params.radius;
+		var centers = params.centers;
+
+
+		var x = coords[0];
+		var y = coords[1];
+		var z = coords[2];
+
+		var SQ = function(x){ return ((x)*(x)); };
+		var QU = function(x){ return (SQ(x)*SQ(x)); };
+
+		var r, th, rd = Math.PI/180.0;
+  		var f1, f2, d2, b, a, p1, p2, p3, f=0.0;
+		var i,j,k,c,s,ii,jj,kk,ij,jk,ki,is,js,ks,one_c,length;
+		var cx,cy,cz,new_x,new_y,new_z;
+		var tempx,tempy,tempz;
+		var over_i=0.0,over_j=0.0,over_k=1.0,over_th,over_c,over_s,
+			over_one_c,over_ii,over_jj,over_kk,over_ij,over_jk,over_ki,
+			over_is,over_js,over_ks,over_x,over_y,over_z,center,axis;
+
+		var sin = Math.sin;
+		var cos = Math.cos;
+		var sqrt = Math.sqrt;
+		var tan = Math.tan;
+		var atan = Math.atan;
+		var atanh = function(x) {return 0.5 * Math.log((1 + x)/(1 - x));};
+
+		for(var n=0; n<S.length; n++) {
+			center = centers[n];
+			cx = center[0];    /* Center of Arc */
+			cy = center[1];
+			cz = center[2];
+
+			r = radius[n];
+			angle[n] += EPS;  /* avoid error */
+
+			axis = axes[n];
+			i = axis[0] + EPS; /* avoid error */
+			j = axis[1] + EPS; /* avoid error */
+			k = axis[2] + EPS; /* avoid error */
+
+			length = sqrt(i*i + j*j + k*k);
+			if( length < EPS ) {
+			  length = EPS;
+			}
+
+			i /= length;   /* Calculate normal vector around which Arc rotates */
+			j /= length;
+			k /= length;
+
+			c = cos(rd * (-angle[n]));
+			s = sin(rd * (-angle[n]));
+
+			one_c = 1.0 - c;
+
+			ii = i*i;  jj = j*j;  kk = k*k;
+			ij = i*j;  jk = j*k;  ki = k*i;
+			is = i*s;  js = j*s;  ks = k*s;
+
+			if(theta[n] > 360.0)
+			  theta[n] = 360.0;
+
+			/********** [Begin] over PI operation ***************************/
+			if(theta[n] > 180.0) {
+			  over_th = (theta[n] - 180.0)*rd;
+			  theta[n] = 180.0;
+			  
+			  /* rotate by -angle */
+			  tempx = (c + ii * one_c)*(x-cx) + (-ks + ij * one_c)*(y-cy) + (js + ki * one_c)*(z-cz);
+			  tempy = (ks + ij * one_c)*(x-cx) +  (c + jj * one_c)*(y-cy) + (-is + jk * one_c)*(z-cz);
+			  tempz = (-js + ki * one_c)*(x-cx) + (is + jk * one_c)*(y-cy) + (c + kk * one_c)*(z-cz);
+
+			  /************* [Begin] rotate -PI operation **********************/
+			  over_c = cos(rd * (-180.0));
+			  over_s = sin(rd * (-180.0));
+			  over_one_c = 1.0 - over_c;
+
+			  over_ii = SQ(over_i); over_jj = SQ(over_j); over_kk = SQ(over_k);
+			  over_ij = over_i*over_j; over_jk = over_j*over_k; over_ki = over_k*over_i;
+			  over_is = over_i*over_s; over_js = over_j*over_s; over_ks = over_k*over_s;
+
+			  over_x = (over_c + over_ii * over_one_c)*(tempx) + (-over_ks + over_ij * over_one_c)*(tempy) + (over_js + over_ki * over_one_c)*(tempz);
+			  over_y = (over_ks + over_ij * over_one_c)*(tempx) + (over_c + over_jj * over_one_c)*(tempy) + (-over_is + over_jk * over_one_c)*(tempz);
+			  over_z = (-over_js + over_ki * over_one_c)*(tempx) + (over_is + over_jk * over_one_c)*(tempy) + (over_c + over_kk * over_one_c)*(tempz);
+			  /************* [End] rotate -PI operation **********************/
+
+			  a = 2.0*r*S[n]*S[n];
+			  d2 = SQ(over_x) + SQ(over_y) + SQ(over_z);
+			  b = 1.0 + SQ(r)*SQ(S[n]) + SQ(S[n])*d2;
+			  p2 = -QU(r)*QU(S[n]) + 2.0*SQ(r)*SQ(S[n])*(SQ(S[n])*(d2 - 2.0*SQ(over_z)) - 1.0) - SQ(1.0 + SQ(S[n])*d2);
+			  p1 = (p2 < 0.0) ? sqrt(-p2) : sqrt(p2);
+			  p3 = p1*p2;
+			  
+			  f1 = (b*over_y) / (over_x*p2*(a*over_x-b)) + (a*(SQ(over_x) + SQ(over_y))*sin(over_th) - b*over_y) / (over_x*p2*(a*(over_x*cos(over_th) + over_y*sin(over_th)) - b));
+			  
+			  if(p2 < 0.0) {
+			  	f2 = 2.0*b*(atan(-a*over_y/p1) + atan((a*over_y - (a*over_x + b)*tan(over_th/2.0)) / p1)) / p3;
+			  } else {
+			  	f2 = 2.0*b*(atanh(a*over_y/p1) + atanh(((a*over_x + b)*tan(over_th/2.0) - a*over_y) / p1)) / p3;
+			  }
+
+			  f += f1 + f2;
+			}
+			/********** [End] over PI operation ***************************/
+
+			th = theta[n]*rd;
+			new_x = (c + ii * one_c)*(x -cx) + (-ks + ij * one_c)*(y-cy) + (js + ki * one_c)* (z-cz);
+			new_y = (ks + ij * one_c)*(x-cx) +  (c + jj * one_c)* (y-cy) + (-is + jk * one_c)*(z-cz);
+			new_z = (-js + ki * one_c)*(x-cx) + (is + jk * one_c)*(y-cy) + (c + kk * one_c)*  (z-cz);
+
+			a = 2.0*r*S[n]*S[n];
+			d2 = SQ(new_x) + SQ(new_y) + SQ(new_z);
+			b = 1.0 + SQ(r)*SQ(S[n]) + SQ(S[n])*d2;
+			p2 = -QU(r)*QU(S[n]) + 2.0*SQ(r)*SQ(S[n])*(SQ(S[n])*(d2 - 2.0*SQ(new_z)) - 1.0) - SQ(1.0 + SQ(S[n])*d2);
+			p1 = (p2 < 0.0) ? sqrt(-p2) : sqrt(p2);
+			p3 = p1*p2;
+
+			f1 = (b*new_y) / (new_x*p2*(a*new_x-b)) + (a*(SQ(new_x) + SQ(new_y))*sin(th) - b*new_y) / (new_x*p2*(a*(new_x*cos(th) + new_y*sin(th)) - b));
+
+			if(p2 < 0.0) {
+				f2 = 2.0*b*(atan(-a*new_y/p1) + atan((a*new_y - (a*new_x + b)*tan(th/2.0)) / p1)) / p3;
+			} else {
+				f2 = 2.0*b*(atanh(a*new_y/p1) + atanh(((a*new_x + b)*tan(th/2.0) - a*new_y) / p1)) / p3;
+			}			  
+
+			f += f1 + f2;
+		}
+
+		var result = f - T;
+
+		return [result, attrs];
+
 	});
 };

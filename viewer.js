@@ -1,7 +1,7 @@
 
-var angleX = 285;
+var angleX = 291;
 var angleY = 0;
-var angleZ = 285;
+var angleZ = 337;
 var viewer;
 var depth = 20;
 var xPos = -3;
@@ -12,8 +12,7 @@ var yPos = -2;
 function Viewer(width, height, depth, id) {
   viewer = this;
   depth = depth;
-  // Get a new WebGL canvas
-  var gl = GL.create();
+  gl = GL.create();
   this.gl = gl;
 
   // Set up the viewport
@@ -80,9 +79,13 @@ function Viewer(width, height, depth, id) {
   gl.onmousemove = function(e) {
     if (that.hasMesh()){
       if (e.dragging) {
-        if (e.shiftKey){
-          xPos += e.deltaX/3;
-          yPos -= e.deltaY/3;
+        if (e.button == 2){
+          xPos += e.deltaX/10;
+          yPos -= e.deltaY/10;
+          e.preventDefault();
+        } else if (e.shiftKey){
+          xPos += e.deltaX/10;
+          yPos -= e.deltaY/10;
         } else if (e.ctrlKey){
           angleY += e.deltaX * 2;
           if (angleY>=360)angleY=0;
@@ -126,6 +129,54 @@ function Viewer(width, height, depth, id) {
     that.blackShader.draw(that.mesh, gl.LINES);
     gl.disable(gl.BLEND);
     if (Viewer.lineOverlay) gl.enable(gl.DEPTH_TEST);
+
+    if (showNormals) {
+      gl.lineWidth(2);
+      gl.begin(gl.LINES);
+      gl.color(0, 0, 0); 
+      for (var i = 0; i < mesh.vertices.length; i++) {
+        var v = mesh.vertices[i]
+        var n = mesh.normals[i]
+        gl.vertex(v[0],v[1],v[2]);
+        gl.vertex(v[0]+n[0],v[1]+n[1],v[2]+n[2]);
+      };
+      gl.end();
+    }
+
+    if (showGrid) {
+      gl.lineWidth(2);
+      gl.begin(gl.LINES);
+      gl.color(0.8,0.8,0.8); 
+      for (var i = gridMin; i <= gridMax; i++) {
+        gl.vertex(i,gridMin,0);
+        gl.vertex(i,gridMax,0);
+        gl.vertex(gridMin,i,0);
+        gl.vertex(gridMax,i,0);
+      };
+      gl.end();
+    }
+
+    if (showAxis) {
+      gl.begin(gl.LINES);
+      gl.lineWidth(5.0);
+      gl.color(1,0,0); 
+      gl.vertex(gridMin,0,0);
+      gl.vertex(gridMax,0,0);
+      gl.vertex(gridMax-0.25,-0.25,0);
+      gl.vertex(gridMax-0.25,0.25,0);
+      gl.color(0,1.0,0); 
+      gl.vertex(0,gridMin,0);
+      gl.vertex(0,gridMax,0);
+      gl.vertex(-0.25,gridMax-0.25,0);
+      gl.vertex(0.25,gridMax-0.25,0);
+      gl.color(0,0,1.0); 
+      gl.vertex(0,0,gridMin);
+      gl.vertex(0,0,gridMax);
+      gl.vertex(-0.25,0,gridMax-0.25);
+      gl.vertex(0.25,0,gridMax-0.25);
+      gl.end();
+    }
+    
   };
 
   this.updateMesh = function(m){

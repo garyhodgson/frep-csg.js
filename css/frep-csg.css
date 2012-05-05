@@ -4,6 +4,10 @@
 .viewer { width: 100%; height: 600px; background: #EEE;}
 .controls { width: 100%; padding: 5px; margin-top: 5px; }
 .info {  width: 100%; height: 200px; padding: 5px; margin: 5px; }
+.info #X { color: red; }
+.info #Y { color: green; }
+.info #Z { color: blue; }
+
 .log {  width: 100%; height: 100%; }
 #viewerStats { font-size: 0.8em;}
 
