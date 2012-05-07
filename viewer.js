@@ -64,15 +64,23 @@ function Viewer(width, height, depth, id) {
       vec3 n = normalize(normal);\
       float diffuse = max(0.0, dot(light, n));\
       float specular = pow(max(0.0, -reflect(light, n).z), 32.0) * sqrt(diffuse);\
-      gl_FragColor = vec4(mix(color * (0.3 + 0.7 * diffuse), vec3(1.0), specular), 1.0);\
+      gl_FragColor = vec4(mix(color * (0.55 + 0.7 * diffuse), vec3(1.0), specular), 1.0);\
     }\
   ');
 
-  $('#viewer1').bind('mousewheel', function(event, delta, deltaX, deltaY) {
+  $('#viewer1').bind('mousewheel', function(e, delta, deltaX, deltaY) {
     if (that.hasMesh()){
-      depth -= delta*5;
+      if (e.shiftKey){
+        if (e.altKey){
+          depth -= delta*0.5;
+        } else {
+          depth -= delta;
+        }
+      } else {
+        depth -= delta*5;  
+      }      
       viewer.gl.ondraw();
-      event.preventDefault();
+      e.preventDefault();
     }
   });
 
@@ -126,7 +134,9 @@ function Viewer(width, height, depth, id) {
 
     if (Viewer.lineOverlay) gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
-    that.blackShader.draw(that.mesh, gl.LINES);
+    if (showOutlines){
+      that.blackShader.draw(that.mesh, gl.LINES);      
+    }
     gl.disable(gl.BLEND);
     if (Viewer.lineOverlay) gl.enable(gl.DEPTH_TEST);
 

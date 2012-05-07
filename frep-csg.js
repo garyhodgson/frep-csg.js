@@ -1,15 +1,26 @@
 var ALPHA = 0.0;
 var EPS = 0.1e-5;
 var sharpen = false;
+var refine = false;
+var refineDegree = 15;
+var refineIterations = 2;
 var showNormals = false;
 var showGrid = false;
 var gridMin = -10;
 var gridMax = 10;
 var showAxis = false;
+var showOutlines = false;
 
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
 var MIN_BOUNDING_BOX = {min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
 var DEFAULT_GRID_SIZE = 50;
+
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+  var rest = this.slice((to || from) + 1 || this.length);
+  this.length = from < 0 ? this.length + from : from;
+  return this.push.apply(this, rest);
+};
 
 CSG = function(params, attrs, func) {
 	this.params = params;
@@ -78,64 +89,164 @@ CSG.prototype = {
 
 							var indexArray = that.indicesArray[h];
 							for (var k in indexArray){
-								var newIndex = parseInt(indexArray[k]) + offset
-								that.indices.push(newIndex)
+								if (_.isNumber(indexArray[k])){								
+									var newIndex = parseInt(indexArray[k]) + offset
+									that.indices.push(newIndex)
+								}
 							}
 							offset += that.verticesArray[h].length
 						}
 
-						notify("Vertices: "+that.vertices.length+ "; Normals: "+ that.normals.length+ "; Indices: "+ that.indices.length+ "; Colors: "+ that.colors.length+";");
+						$('#currVertices').html(that.vertices.length)
+						$('#currNormals').html(that.normals.length)
+						$('#currColors').html(that.colors.length)
+						$('#currIndices').html(that.indices.length)
 
 						mesh = new GL.Mesh({ normals: true, colors: true });
 
-//TMP
-if (sharpen){
-						truncateDecimals = function (number) {
-						    return Math[number < 0 ? 'ceil' : 'floor'](number);
-						};
+/*
+Add triangles where normal angles > x deg
+*/
 
-						var verticesLength = that.vertices.length;
-						for (var i = 0; i < verticesLength; i++) {
-							var v = $.extend(true, [], that.vertices[i]);
-							var n = that.normals[i];
-							var r = that.call(v)
-							
+if (refine){
+	refineIterationsCounter = refineIterations;
+	
+	while  (refineIterationsCounter-- > 0){
 
-								var breakout = 3;
-								var newVal = r[0]
-								
+		var indicesLength = that.indices.length
+		for (var i = 2; i < indicesLength; i+=3) {
 
-								var truncated = truncateDecimals(newVal.toFixed(2) * 10) / 10
-								//console.log("newval", truncated)
+			var triIndex = [that.indices[i-2], that.indices[i - 1], that.indices[i]]
+			var tri = [that.vertices[triIndex[0]], that.vertices[triIndex[1]], that.vertices[triIndex[2]]]
+		
+			var v1 = that.vertices[triIndex[0]]
+			var v2 = that.vertices[triIndex[1]]
+			var v3 = that.vertices[triIndex[2]]
 
-								while (truncated != 0.0 && breakout >= 0) {
+			var n1 = that.normals[triIndex[0]]
+			var n2 = that.normals[triIndex[1]]
+			var n3 = that.normals[triIndex[2]]
+			
+			var r1 = that.call(v1)[0]
+			var r2 = that.call(v2)[0]
+			var r3 = that.call(v3)[0]
 
-									for (var i2 = 0; i2 < 3; i2++) {
-								//		console.log("     "+i2, that.vertices[i][i2], r[0])
-										that.vertices[i][i2] += n[i2] * (r[0]/5)
-								//		console.log("     *"+i2, that.vertices[i][i2])
-									}
+			var n1n2Radians = Math.acos(n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2])
+			var n1n2Angle = (n1n2Radians / (2*Math.PI)) * 360
+			var n1n3Radians = Math.acos(n1[0]*n3[0] + n1[1]*n3[1] + n1[2]*n3[2])
+			var n1n3Angle = (n1n3Radians / (2*Math.PI)) * 360
+			var n2n3Radians = Math.acos(n2[0]*n3[0] + n2[1]*n3[1] + n2[2]*n3[2])
+			var n2n3Angle = (n2n3Radians / (2*Math.PI)) * 360
+			
+			if ((n1n2Angle + n1n3Angle + n2n3Angle)/3 > refineDegree ) {
+			
+	//			console.log("TriIndex("+triIndex+")")
+	//			console.log("Tri("+tri+")")
+	//			console.log("Norm1",n1[0]+v1[0],n1[1]+v1[1],n1[2]+v1[2]);
+	//			console.log("Norm2",n2[0]+v2[0],n2[1]+v2[1],n2[2]+v2[2]);
+	//			console.log("Norm3",n3[0]+v3[0],n3[1]+v3[1],n3[2]+v3[2]);
+	//			console.log("Vert",v1,v2,v3);
+	//			console.log("Results",r1,r2,r3);
+	//			console.log("n1n2 angle deg,radians",n1n2Angle, n1n2Radians)
+	//			console.log("n1n3 angle deg,radians",n1n3Angle, n1n3Radians)
+	//			console.log("n2n3 angle deg,radians",n2n3Angle, n2n3Radians)
+	//			console.log("\n");
 
-									newVal = that.call(that.vertices[i])[0]
+				var newX = (v1[0]+v2[0]+v3[0])/3;
+				var newY = (v1[1]+v2[1]+v3[1])/3;
+				var newZ = (v1[2]+v2[2]+v3[2])/3;
 
-									truncated = truncateDecimals(newVal.toFixed(2) * 10) / 10
+				var newNormX = (n1[0]+n2[0]+n3[0])/3;
+				var newNormY = (n1[1]+n2[1]+n3[1])/3;
+				var newNormZ = (n1[2]+n2[2]+n3[2])/3;
 
-								//	console.log(breakout, truncated)
-									breakout--
+				var newResult = that.call([newX, newY, newZ])[0]
 
-								} 
-								if (breakout <= 0){ // revert
-									that.vertices[i] = v;
-								}
+				that.vertices.push([newX, newY, newZ])
+				var vertIndex = that.vertices.length-1
+				that.normals.push([newNormX, newNormY, newNormZ])
+				var normIndex = that.normals.length-1
 
-								//that.vertices[i][i2] += (that.vertices[i][i2]+n[i2]) * 2;
+				that.colors.push([0.8,0.8,1])
 
-							
-							//console.log(that.vertices[i], n,  that.call(that.vertices[i])[0])
-							//console.log(that.call(that.vertices[i])[0])
-						}
+				that.indices.push(vertIndex, triIndex[0], triIndex[1])
+				that.indices.push(vertIndex, triIndex[1], triIndex[2])
+				that.indices.push(vertIndex, triIndex[2], triIndex[0])
+
+				delete that.indices[i-2]
+				delete that.indices[i-1]
+				delete that.indices[i]
+
+				that.colors[triIndex[0]] = [0.8,0.8,1]
+				that.colors[triIndex[1]] = [0.8,0.8,1]
+				that.colors[triIndex[2]] = [0.8,0.8,1]
+			}
+		}
+
+		var tmpIndices = []
+		for (var x=0; x<that.indices.length; x++){
+			var index = that.indices[x]
+			if (index != undefined){
+				tmpIndices.push(index)
+			}
+		}
+
+		that.indices = tmpIndices
+		tmpIndices = undefined	
+	}
+
 }
-//TMP
+/*
+Move vertices along normal until function = 0.0	
+*/
+if (sharpen){
+	truncateDecimals = function (number) {
+	    return Math[number < 0 ? 'ceil' : 'floor'](number);
+	};
+
+	var verticesLength = that.vertices.length;
+	for (var i = 0; i < verticesLength; i++) {
+		var v = $.extend(true, [], that.vertices[i]);
+		var n = that.normals[i];
+		var r = that.call(v)
+		
+			var breakout = 8;
+			var newVal = r[0]
+			
+
+			var truncated = truncateDecimals(newVal.toFixed(3) * 100) / 100
+			//console.log("newval", truncated)
+
+			while (truncated != 0.000 && breakout >= 0) {
+
+				for (var i2 = 0; i2 < 3; i2++) {
+			//		console.log("     "+i2, that.vertices[i][i2], r[0])
+					that.vertices[i][i2] += n[i2] * (r[0]/5)
+			//		console.log("     *"+i2, that.vertices[i][i2])
+				}
+
+				newVal = that.call(that.vertices[i])[0]
+
+				truncated = truncateDecimals(newVal.toFixed(2) * 10) / 10
+
+			//	console.log(breakout, truncated)
+				breakout--
+
+			} 
+			if (breakout <= 0){ // revert
+				that.vertices[i] = v;
+			}
+
+			//that.vertices[i][i2] += (that.vertices[i][i2]+n[i2]) * 2;
+
+		
+		//console.log(that.vertices[i], n,  that.call(that.vertices[i])[0])
+		//console.log(that.call(that.vertices[i])[0])
+	}
+
+
+}
+
 						for (var i = 2; i < that.indices.length; i+=3) {
 							mesh.triangles.push([that.indices[i-2], that.indices[i - 1], that.indices[i]]);
 						}
