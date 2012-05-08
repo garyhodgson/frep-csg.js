@@ -425,7 +425,7 @@ CSG.prototype = {
 						var result1 = f1[0]; \
 						var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						var result2 = f2[0]; \
-						result1 = -result1; \
+						result2 = -result2; \
 						var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
 						var attrs = f1[1]; \
 						_.extend(true, attrs, f2[1]); \
