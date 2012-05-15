@@ -153,6 +153,16 @@ function Viewer(width, height, depth, id) {
       gl.end();
     }
 
+    var minX = parseFloat($('#boundingBoxMinX').val())
+    var maxX = parseFloat($('#boundingBoxMaxX').val())
+    var minY = parseFloat($('#boundingBoxMinY').val())
+    var maxY = parseFloat($('#boundingBoxMaxY').val())
+    var minZ = parseFloat($('#boundingBoxMinZ').val())
+    var maxZ = parseFloat($('#boundingBoxMaxZ').val())
+    var gridX = parseInt($('#gridX').val());
+    var gridY = parseInt($('#gridY').val());
+    var gridZ = parseInt($('#gridZ').val());
+    
     if (showGrid) {
       gl.lineWidth(2);
       gl.begin(gl.LINES);
@@ -166,6 +176,51 @@ function Viewer(width, height, depth, id) {
       gl.end();
     }
 
+    if (showBoundingBox) {
+      gl.lineWidth(2);
+      gl.begin(gl.LINES);
+      gl.color(0.8,0.8,0.8);
+      
+
+      gl.vertex(minX,minY,minZ);
+      gl.vertex(minX,minY,maxZ);
+
+      gl.vertex(minX,minY,minZ);
+      gl.vertex(minX,maxY,minZ);
+
+      gl.vertex(minX,minY,minZ);
+      gl.vertex(maxX,minY,minZ);
+
+      gl.vertex(maxX,maxY,maxZ);
+      gl.vertex(maxX,maxY,minZ);
+
+      gl.vertex(maxX,maxY,maxZ);
+      gl.vertex(maxX,minY,maxZ);
+
+      gl.vertex(maxX,maxY,maxZ);
+      gl.vertex(minX,maxY,maxZ);
+
+      gl.vertex(maxX,minY,minZ);
+      gl.vertex(maxX,minY,maxZ);
+
+      gl.vertex(maxX,minY,minZ);
+      gl.vertex(maxX,maxY,minZ);
+
+      gl.vertex(minX,minY,maxZ);
+      gl.vertex(maxX,minY,maxZ);
+
+      gl.vertex(minX,maxY,minZ);
+      gl.vertex(maxX,maxY,minZ);
+
+      gl.vertex(minX,maxY,minZ);
+      gl.vertex(minX,maxY,maxZ);
+
+      gl.vertex(minX,minY,maxZ);
+      gl.vertex(minX,maxY,maxZ);
+
+      gl.end();
+    }
+
     if (showAxis) {
       gl.begin(gl.LINES);
       gl.lineWidth(5.0);
@@ -174,16 +229,28 @@ function Viewer(width, height, depth, id) {
       gl.vertex(gridMax,0,0);
       gl.vertex(gridMax-0.25,-0.25,0);
       gl.vertex(gridMax-0.25,0.25,0);
+      for (var i = gridMin; i < gridMax; i++){
+        gl.vertex(i,-0.1,0);
+        gl.vertex(i,0.1,0);
+      }
       gl.color(0,1.0,0); 
       gl.vertex(0,gridMin,0);
       gl.vertex(0,gridMax,0);
       gl.vertex(-0.25,gridMax-0.25,0);
       gl.vertex(0.25,gridMax-0.25,0);
+      for (var i = gridMin; i < gridMax; i++){
+        gl.vertex(-0.1,i,0);
+        gl.vertex(0.1,i,0);
+      }
       gl.color(0,0,1.0); 
       gl.vertex(0,0,gridMin);
       gl.vertex(0,0,gridMax);
       gl.vertex(-0.25,0,gridMax-0.25);
       gl.vertex(0.25,0,gridMax-0.25);
+      for (var i = gridMin; i < gridMax; i++){
+        gl.vertex(-0.1,0,i);
+        gl.vertex(0.1,0,i);
+      }
       gl.end();
     }
     

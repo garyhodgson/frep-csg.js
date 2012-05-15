@@ -13,11 +13,12 @@ var gridMin = -10;
 var gridMax = 10;
 var showAxis = false;
 var showOutlines = false;
-var highlightColor = [0.8,0.8,1]
-
+var showBoundingBox = false;
+var highlightColor = [0.8,0.8,1];
 
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
-var MIN_BOUNDING_BOX = {min:{x:-5.0,y:-5.0,z:-5.0},max:{x:5.0,y:5.0,z:5.0}};
+var MIN_BOUNDING_BOX_VALUE = 1.0
+var MIN_BOUNDING_BOX = {min:{x:-MIN_BOUNDING_BOX_VALUE,y:-MIN_BOUNDING_BOX_VALUE,z:-MIN_BOUNDING_BOX_VALUE},max:{x:MIN_BOUNDING_BOX_VALUE,y:MIN_BOUNDING_BOX_VALUE,z:MIN_BOUNDING_BOX_VALUE}};
 var DEFAULT_GRID_SIZE = 50;
 
 CSG = function(params, attrs, func) {
@@ -392,7 +393,7 @@ CSG.prototype = {
 						var col1 = attrs1.color || [1,1,1]; \
 						var col2 = attrs2.color || [1,1,1]; \
 						var unionCol = [1,1,1]; \
-						if (result2 >= 0.0 && result1 >= 0.0) { \
+						if (result2.toFixed(2) >= 0.0 && result1.toFixed(2) >= 0.0) { \
 							unionCol[0] = (col1[0] + col2[0]) / 2; \
 							unionCol[1] = (col1[1] + col2[1]) / 2; \
 							unionCol[2] = (col1[2] + col2[2]) / 2; \
@@ -413,9 +414,7 @@ CSG.prototype = {
 						var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
 						var result2 = f2[0]; \
 						var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
-						var attrs = f1[1]; \
-						_.extend(true, attrs, f2[1]); \
-						return [result, attrs]";
+						return [result, _.extend({}, f2[1], f1[1])]";
 		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
 	subtract: function(otherCsg){
@@ -427,9 +426,7 @@ CSG.prototype = {
 						var result2 = f2[0]; \
 						result2 = -result2; \
 						var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
-						var attrs = f1[1]; \
-						_.extend(true, attrs, f2[1]); \
-						return [result, attrs]; \
+						return [result, _.extend({}, f2[1], f1[1])]; \
 						";
 		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
 	},
@@ -446,9 +443,11 @@ CSG.prototype = {
 				var st = Math.sin(theta); \
 				var yr = coords[1] * ct + coords[2] * st;\
 				var zr = -coords[1] * st + coords[2] * ct;\
-				coords[1] = yr;\
-				coords[2] = zr;\
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = coords[0]; \
+				newcoords[1] = yr;\
+				newcoords[2] = zr;\
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 				");
 	},
 	//	RotateY
@@ -463,9 +462,11 @@ CSG.prototype = {
 						var st = Math.sin(theta); \
 						var zr = coords[2] * ct + coords[0] * st; \
 						var xr = -coords[2] * st + coords[0] * ct; \
-						coords[0] = xr; \
-						coords[2] = zr; \
-						return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+						var newcoords = []; \
+						newcoords[0] = xr; \
+						newcoords[1] = coords[1]; \
+						newcoords[2] = zr; \
+						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 						");
 	},
 	//	RotateZ
@@ -480,9 +481,11 @@ CSG.prototype = {
 						var st = Math.sin(theta); \
 						var xr = coords[0] * ct + coords[1] * st; \
 						var yr = -coords[0] * st + coords[1] * ct; \
-						coords[0] = xr; \
-						coords[1] = yr; \
-						return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+						var newcoords = []; \
+						newcoords[0] = xr; \
+						newcoords[1] = yr; \
+						newcoords[2] = coords[2]; \
+						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 						");
 	},
 	//	TwistX
@@ -505,9 +508,11 @@ CSG.prototype = {
 						var st = Math.sin(theta); \
 						var yr = coords[1] * ct + coords[2] * st; \
 						var zr = -coords[1] * st + coords[2] * ct; \
-						coords[1] = yr; \
-						coords[2] = zr; \
-						return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+						var newcoords = []; \
+						newcoords[0] = coords[0]; \
+						newcoords[1] = yr; \
+						newcoords[2] = zr; \
+						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 						");
 	},
 	//	TwistY
@@ -531,9 +536,11 @@ CSG.prototype = {
 				var st = Math.sin(theta); \
 				var zr = coords[2] * ct + coords[0] * st; \
 				var xr = -coords[2] * st + coords[0] * ct; \
-				coords[0] = xr; \
-				coords[2] = zr; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = xr; \
+				newcoords[1] = coords[1]; \
+				newcoords[2] = zr; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 				");
 	},
 	//	TwistZ
@@ -557,24 +564,28 @@ CSG.prototype = {
 				var st = Math.sin(theta); \
 				var xr = coords[0] * ct + coords[1] * st; \
 				var yr = -coords[0] * st + coords[1] * ct; \
-				coords[0] = xr; \
-				coords[1] = yr; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = xr; \
+				newcoords[1] = yr; \
+				newcoords[2] = coords[2]; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 				");
 	},
 	//	Shift
 	//	Definition: x'=x+dx
 	//	Parameters:
- 	//		dx,dy,dz - scaling factors along axes
+ 	//		dx,dy,dz - shift factors along axes
 	shift: function(p){
-		return CSG.methodFactory(this, p, "var dx = params[1].dx; \
-						var dy = params[1].dy; \
-						var dz = params[1].dz; \
-						coords[0] = coords[0] - dx; \
-						coords[1] = coords[1] - dy; \
-						coords[2] = coords[2] - dz; \
-						return "+this.func.toString()+"(coords,params[0],attrs[0]);\
-						");
+		return CSG.methodFactory(this, p, 
+			"   var dx = params[1].dx; \
+				var dy = params[1].dy; \
+				var dz = params[1].dz; \
+				var newcoords = []; \
+				newcoords[0] = coords[0] - dx; \
+				newcoords[1] = coords[1] - dy; \
+				newcoords[2] = coords[2] - dz; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				");
 	},
 	//	Stretch
 	//	Definition: x'=x0+(x-x0)/scale  (inverse mapping)
@@ -587,10 +598,11 @@ CSG.prototype = {
 				var sx = params[1].sx; \
 				var sy = params[1].sy; \
 				var sz = params[1].sz; \
-				coords[0] = x0[0] + (coords[0] - x0[0]) / sx; \
-				coords[1] = x0[1] + (coords[1] - x0[1]) / sy; \
-				coords[2] = x0[2] + (coords[2] - x0[2]) / sz; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = x0[0] + (coords[0] - x0[0]) / sx; \
+				newcoords[1] = x0[1] + (coords[1] - x0[1]) / sy; \
+				newcoords[2] = x0[2] + (coords[2] - x0[2]) / sz; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 			");
 	},
 	//	Scale
@@ -599,10 +611,11 @@ CSG.prototype = {
 	//		sx,sy,sz - scaling factors along axes
 	scale: function(p){
 		return CSG.methodFactory(this, p, 
-			"	coords[0] = coords[0] / params[1].sx; \
-				coords[1] = coords[1] / params[1].sy; \
-				coords[2] = coords[2] / params[1].sz; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+			"	var newcoords = []; \
+				newcoords[0] = coords[0] / params[1].sx; \
+				newcoords[1] = coords[1] / params[1].sy; \
+				newcoords[2] = coords[2] / params[1].sz; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 			");
 	},
 	//	TaperX
@@ -636,9 +649,11 @@ CSG.prototype = {
 					}                    \
 				}                        \
 				if(Math.abs(scale) < EPS) scale = 1.0; \
-				coords[1] = coords[1] / scale; \
-				coords[2] = coords[2] / scale; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = coords[0]; \
+				newcoords[1] = coords[1] / scale; \
+				newcoords[2] = coords[2] / scale; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 			");
 	},
 	//	TaperY
@@ -672,9 +687,11 @@ CSG.prototype = {
 					}                    \
 				}                        \
 				if(Math.abs(scale) < EPS) scale = 1.0; \
-				coords[2] = coords[2] / scale; \
-				coords[0] = coords[0] / scale; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = coords[0] / scale; \
+				newcoords[1] = coords[1]; \
+				newcoords[2] = coords[2] / scale; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 			");
 	},
 	//	TaperZ
@@ -708,15 +725,56 @@ CSG.prototype = {
 					}                    \
 				}                        \
 				if(Math.abs(scale) < EPS) scale = 1.0; \
-				coords[0] = coords[0] / scale; \
-				coords[1] = coords[1] / scale; \
-				return "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var newcoords = []; \
+				newcoords[0] = coords[0] / scale; \
+				newcoords[1] = coords[1] / scale; \
+				newcoords[2] = coords[2]; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
 			");
 	},
+	clone: function(){
+		return new CSG(_.extend({}, this.params), _.extend({}, this.attrs), this.func);
+	},
+	setAttributes: function(attrs){
+		this.attrs = attrs;
+	},
+	setParameters: function(params){
+		this.params = params;
+	},
+	setAttribute: function(name, value){
+		if (this.attrs == undefined){
+			this.attrs = {};
+		}
+		this.attrs[name] = value;
+	},
+	getAttribute: function(name){
+		if (this.attrs == undefined){
+			return undefined;
+		}
+		return this.attrs[name];
+	},
+	setParameter: function(name, value){
+		if (this.params == undefined){
+			this.params = {};
+		}
+		this.params[name] = value;
+	},
+	getParameter: function(name){
+		if (this.params == undefined){
+			return undefined;
+		}
+		return this.params[name];
+	},
+	shellify: function(p){
+		var core = this.clone();
+	}
 };
 
 CSG.methodFactory = function(csg, params, funcDef) {
-	return new CSG([csg.params, params], [csg.attrs||{}], new Function('coords', 'params', 'attrs', funcDef));
+	var newParams = _.extend({}, csg.params);
+	var newAttrs = _.extend({}, csg.attrs);
+
+	return new CSG([newParams, params], [newAttrs], new Function('coords', 'params', 'attrs', funcDef));
 };
 
 /**Shapes **/
