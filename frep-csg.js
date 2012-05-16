@@ -17,7 +17,7 @@ var showBoundingBox = false;
 var highlightColor = [0.8,0.8,1];
 
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
-var MIN_BOUNDING_BOX_VALUE = 1.0
+var MIN_BOUNDING_BOX_VALUE = 5.0
 var MIN_BOUNDING_BOX = {min:{x:-MIN_BOUNDING_BOX_VALUE,y:-MIN_BOUNDING_BOX_VALUE,z:-MIN_BOUNDING_BOX_VALUE},max:{x:MIN_BOUNDING_BOX_VALUE,y:MIN_BOUNDING_BOX_VALUE,z:MIN_BOUNDING_BOX_VALUE}};
 var DEFAULT_GRID_SIZE = 50;
 
@@ -883,7 +883,7 @@ CSG.gyroid = function(params, attrs) {
 //	EllipticCylinderX
 //	Definition: 1-((y-y0)/a)^2-((z-z0)/b)^2
 //	Parameters:
-//		center - sphere center array
+//		center - center array
 //		a,b - elliptic half-axes along y,z		
 CSG.ellipticCylinderX = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -897,7 +897,7 @@ CSG.ellipticCylinderX = function(params, attrs){
 //	EllipticCylinderY
 //	Definition: 1-((x-x0)/a)^2-((z-z0)/b)^2
 //	Parameters:
-//		center - sphere center array
+//		center - center array
 //		a,b - elliptic half-axes along x,z
 CSG.ellipticCylinderY = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -911,7 +911,7 @@ CSG.ellipticCylinderY = function(params, attrs){
 //	EllipticCylinderZ
 //	Definition: 1-((x-x0)/a)^2-((y-y0)/b)^2
 //	Parameters:
-//		center - sphere center array
+//		center - center array
 //		a,b - elliptic half-axes along x,y
 CSG.ellipticCylinderZ = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -925,7 +925,7 @@ CSG.ellipticCylinderZ = function(params, attrs){
 //	Ellipsoid
 //	Definition: 1-((x-x0)/a)^2-((y-y0)/b)^2-((z-z0)/c)^2
 //	Parameters:
-//		center - sphere center array
+//		center - center array
 //		a,b,c - ellipsoid half-axes along x,y,z
 CSG.ellipsoid = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -940,7 +940,7 @@ CSG.ellipsoid = function(params, attrs){
 // CylinderX
 // Definition: R^2-(y-y0)^2-(z-z0)^2
 // Parameters:
-//		center - sphere center array
+//		center - center array
 //		R - cylinder radius
 CSG.cylinderX = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -954,7 +954,7 @@ CSG.cylinderX = function(params, attrs){
 // CylinderY
 // Definition: R^2-(x-x0)^2-(z-z0)^2
 // Parameters:
-//		center - sphere center array
+//		center - center array
 //		R - cylinder radius
 CSG.cylinderY = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -968,7 +968,7 @@ CSG.cylinderY = function(params, attrs){
 // CylinderZ
 // Definition: R^2-(x-x0)^2-(y-y0)^2
 // Parameters:
-//		center - sphere center array
+//		center -  center array
 //		R - cylinder radius
 CSG.cylinderZ = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -993,7 +993,7 @@ CSG.heart = function(params, attrs){
 // Primitive: Cone with x-axis 
 // Definition: (x-x0)^2-((y-y0)/R)^2-((z-z0)/R)^2
 // Parameters:
-//		center - sphere center array
+//		center - center array
 //		R - radius at height 1 
 CSG.coneX = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -1008,7 +1008,7 @@ CSG.coneX = function(params, attrs){
 // Primitive: Cone with y-axis 
 // Definition: (y-y0)^2-((x-x0)/R)^2-((z-z0)/R)^2
 // Parameters:
-//		center - sphere center array
+//		center - center array
 //		R - radius at height 1 
 CSG.coneY = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){
@@ -1023,7 +1023,7 @@ CSG.coneY = function(params, attrs){
 // Primitive: Cone with z-axis 
 // Definition: (z-z0)^2-((x-x0)/R)^2-((y-y0)/R)^2
 // Parameters:
-//		center - sphere center array
+//		center - center array
 //		R - radius at height 1 
 CSG.coneZ = function(params, attrs){
 	return new CSG(params, attrs, function(coords, params, attrs){

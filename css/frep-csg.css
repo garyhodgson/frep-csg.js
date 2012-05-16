@@ -20,3 +20,36 @@ canvas { cursor: move; }
 .overlay {
 	background-color: red;
 }
+
+#helpDialog {
+	display:none;
+}
+
+#helpDialog li {
+	list-style: none;
+}
+
+#helpDialog table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+#helpDialog #example {
+	display:none;
+}
+
+#helpDialog th {
+	border: 1px grey solid;
+	background-color: grey;
+	color: white;
+}
+
+#helpDialog td {
+	border: 1px grey dotted;
+	padding: 5px;
+}
+
+.selectablecell {
+	background-color: #eee;
+	cursor: hand;
+}

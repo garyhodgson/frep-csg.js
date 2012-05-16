@@ -2,6 +2,9 @@
 <head>
 	<title>FRep CSG</title>
 
+	<link rel="stylesheet" href="css/frep-csg.css" type="text/css" charset="utf-8" />
+	<link rel="stylesheet" href="css/smoothness/jquery-ui-1.8.20.custom.css" type="text/css" charset="utf-8" />
+
 	<script src="js/jquery.js"></script>
 	<script src="js/jquery.mousewheel.js"></script>
 	<script src="js/jquery.textarea.js"></script>
@@ -10,16 +13,49 @@
 	<script src="js/date.format.js"></script>
 	<script src="js/lightgl.js"></script>
 	<script src="js/underscore-min.js"></script>
+	<script src="js/jquery-ui-1.8.20.custom.min.js"></script>
 
 	<script src="WorkerConsole.js"></script>
 
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
 
-	<link rel="stylesheet" href="css/frep-csg.css" type="text/css" charset="utf-8" />
-
 	<script>
-	
+
+		function insertAtCaret(areaId,text) {
+			var txtarea = document.getElementById(areaId);
+			var scrollPos = txtarea.scrollTop;
+			var strPos = 0;
+			var br = ((txtarea.selectionStart || txtarea.selectionStart == '0') ? 
+			    "ff" : (document.selection ? "ie" : false ) );
+			if (br == "ie") { 
+			    txtarea.focus();
+			    var range = document.selection.createRange();
+			    range.moveStart ('character', -txtarea.value.length);
+			    strPos = range.text.length;
+			}
+			else if (br == "ff") strPos = txtarea.selectionStart;
+
+			var front = (txtarea.value).substring(0,strPos);  
+			var back = (txtarea.value).substring(strPos,txtarea.value.length); 
+			txtarea.value=front+text+back;
+			strPos = strPos + text.length;
+			if (br == "ie") { 
+			    txtarea.focus();
+			    var range = document.selection.createRange();
+			    range.moveStart ('character', -txtarea.value.length);
+			    range.moveStart ('character', strPos);
+			    range.moveEnd ('character', 0);
+			    range.select();
+			}
+			else if (br == "ff") {
+			    txtarea.selectionStart = strPos;
+			    txtarea.selectionEnd = strPos;
+			    txtarea.focus();
+			}
+			txtarea.scrollTop = scrollPos;
+		}
+
 		function notify(msg, append){
 			var d = new Date();
 			if (append){
@@ -327,6 +363,28 @@
 				}
 			});
 
+			$('#help').click(function(e){
+				$('#helpDialog').dialog('open');
+			});
+
+			$('#helpDialog').dialog({
+				autoOpen: false,
+				width: "auto",
+				height: 600,
+				buttons: {}
+			});
+
+			$('#helpDialog table td:first-child')
+			.attr("title","Click to inject into editor")
+			.hover(function(){$(this).addClass("selectablecell");},function(){$(this).removeClass("selectablecell");})
+			.click(function(e){
+				var example = $(this).find('span#example').text()
+				if (example != undefined){
+					insertAtCaret('editor1',example);
+					$('#helpDialog').dialog('close');
+				}
+			});
+
 			var resizeTimeout;
 			window.onresize = function() {
 				clearTimeout(resizeTimeout);
@@ -376,6 +434,7 @@
 			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />
 			&nbsp;<input type="button" value="STL" id="stl" name="stl" />
 			&nbsp;<input type="button" value="Reset" id="resetEditor" name="resetEditor" />
+			&nbsp;<input type="button" value="Help" id="help" name="help" />
 			<progress id="zProgress" max="100" value="0"></progress>&nbsp;<img id="spinner" src="images/spinner.gif">
 			<br>
 			Refine1: <input class="setting" id="refine1" name="refine1" type="checkbox"/>
@@ -437,6 +496,148 @@
 			Zoom&amp;Centre: <input class="setting" id="zoomCentre" name="zoomCentre" type="checkbox"/>
 		</form>
 	</div>
+</div>
+
+
+<div id="helpDialog" title="Help">
+	<table id="helpTable">
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Definition</th>
+				<th>Parameters</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td>CSG.cylinderY<span id="example">CSG.cylinderY({center:[0,0,0], R:5})</span></td>
+				<td>R<sup>2</sup>-(x-x0)<sup>2</sup>-(y-y0)<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>R</strong> - cylinder radius</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.block<span id="example">CSG.block({vertex:[0,0,0], dx:4,dy:4,dz:4},{color:[0,1,0]})</span></td>
+				<td>x:[vertex[1], vertex[1]+dx], ...</td>
+				<td>
+					<li><strong>vertex</strong> - block vertex coordinates array</li>
+					<li><strong>dx,dy,dz</strong> - edge lengths along x,y,z</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.sphere<span id="example">CSG.sphere({center:[3,3,3], radius:2}, {color:[1,0,0]})</span></td>
+				<td>R<sup>2</sup>-(x-x0)<sup>2</sup>-(y-y0)<sup>2</sup>-(z-z0)<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - sphere center array</li>
+					<li><strong>R</strong> - sphere radius</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.torus[X|Y|Z]<span id="example">CSG.torusX({center:center, R:r, r0:r1})</span></td>
+				<td>Torus with X, Y or Z-axis</td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>R</strong> - radius of revolution</li>
+					<li><strong>r0</strong> - disk radius</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.ellipticCylinderX<br>CSG.ellipticCylinderY<br>CSG.ellipticCylinderZ<span id="example">CSG.ellipticCylinderZ({center:[0,0,0], a:1,b:2}, {color:[0.9,0.5,0.9]})</span></td>
+				<td>1-((y-y0)/a)<sup>2</sup>-((z-z0)/b)<sup>2</sup>
+					<br>1-((x-x0)/a)<sup>2</sup>-((z-z0)/b)<sup>2</sup>
+					<br>1-((x-x0)/a)<sup>2</sup>-((y-y0)/b)<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>a,b</strong> - elliptic half-axes along y,z or x,z or x,y</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.ellipsoid<span id="example">CSG.ellipsoid({center:[0,0,0], a:1,b:2,c:3}, {color:[1,1,0.8]})</span></td>
+				<td>1-((x-x0)/a)<sup>2</sup>-((y-y0)/b)<sup>2</sup>-((z-z0)/c)<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>a,b,c</strong> - ellipsoid half-axes along x,y,z</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.cylinderX<br>CSG.cylinderY<br>CSG.cylinderZ<span id="example">CSG.cylinderX({center:[0,0,0], R:3}, {color:[1,1,0.8]})</span></td>
+				<td>R<sup>2</sup>-(y-y0)<sup>2</sup>-(z-z0)<sup>2</sup><br>R<sup>2</sup>-(x-x0)<sup>2</sup>-(z-z0)<sup>2</sup><br>R<sup>2</sup>-(x-x0)<sup>2</sup>-(y-y0)<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>R</strong> - cylinder radius</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.coneX<br>CSG.coneY<br>CSG.coneZ<span id="example">CSG.coneY({center:[0,0,0], R:3}, {color:[1,1,0.8]})</span></td>
+				<td>(x-x0)<sup>2</sup>-((y-y0)/R)<sup>2</sup>-((z-z0)/R)<sup>2</sup>
+					<br>(y-y0)<sup>2</sup>-((x-x0)/R)<sup>2</sup>-((z-z0)/R)<sup>2</sup>
+					<br>(z-z0)<sup>2</sup>-((x-x0)/R)<sup>2</sup>-((y-y0)/R)<sup>2</sup>
+				</td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>R</strong> - radius at height 1</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.catenoid<span id="example">CSG.catenoid({center:[0,0,0]}, {color:[0.8,1,1]})</span></td>
+				<td>x<sup>2</sup> + y<sup>2</sup> - cosh( z )<sup>2</sup></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.helicoid<span id="example">CSG.helicoid({center:[0,0,0]}, {color:[1,0.5,1]})</span></td>
+				<td>cos( z ) y - x sin( z )</td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.orthocircles<br><span id="example">CSG.orthocircles({center:[0,0,0], ff:0.075, bb:3}, {color:[1,0.5,1]})</span></td>
+				<td>from <a href="http://xahlee.org/surface/orthocircles/orthocircles.html" target="_blank" tabindex="-1">xahlee.org/surface/orthocircles</a></td>
+				<td>
+					<li><strong>center</strong> - center array</li>
+					<li><strong>ff</strong></li>
+					<li><strong>bb</strong></li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.blobbyball<span id="example">CSG.blobbyball({bc:[[-7.0, -7, -7],[-6.0,-4,-6],[-4.0, -7, -4],[-2.0, -4, -2],[0, -2, 0],[7, 1,4]],a:[0.7, 1, 1, 0.3, 1, 1],b:[3, 1, 1, 1, 1, 0.5],T:0.05})</span></td>
+				<td>Sum b*exp(-a*r<sup>2</sup>)-T</td>
+				<td>
+					<li><strong>bc</strong> - arrays of blob centers [[x,y,z],...]</li>
+					<li><strong>a</strong> - array of a coefficients</li>
+					<li><strong>b</strong> - array of b coefficients</li>
+					<li><strong>T</strong> - threshold value</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.convLine<br>Cauchy Line with Convolution Surface<span id="example">CSG.convLine({T:0.5, S:[0.65, 0.65, 1], begin:[[-8.0, 0.0, 0.0],[0.0, -8.0, 0.0],[0.0, 0.0, -8.0]],end:[[8.0, 0.0, 0.0],[0.0, 8.0, 0.0],[0.0, 0.0, 8.0]]})</span></td>
+				<td>1 / (1 + S<sup>2</sup>*R<sup>2</sup>)<sup>2</sup><br>R is the distance between primitive and x</td>
+				<td>
+					<li><strong>T</strong> - threshold value</li>
+					<li><strong>S</strong> - control value for width of the kernel</li>
+					<li><strong>end</strong> - ending points coordinate array [[x,y,z],...]</li>
+					<li><strong>begin</strong> - beginning points coordinate array [[x,y,z],...]</li>
+				</td>
+			</tr>
+			<tr>
+				<td>CSG.convArc<br>Cauchy Arc with Convolution Surface<br>(By: Ken Yoshikawa)<span id="example">CSG.convArc({centers:[[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]],radius:[8.5, 8.5, 8.5],theta:[360.0, 360.0, 360.0],rotate_axes:[[0.0, 0.0, 1.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]],rotate_angles:[0.0, 90.0, 90.0],S:[0.65, 0.65, 0.65],T:0.22})</span></td>
+				<td>1 / (1 + S<sup>2</sup>*R<sup>2</sup>)<sup>2</sup><br>R is the distance between primitive and x</td>
+				<td>
+					<li><strong>T</strong> - threshold value</li>
+					<li><strong>S</strong> - control value for width of the kernel</li>
+					<li><strong>rotate_angles</strong> - rotate angle</li>
+					<li><strong>rotate_axes</strong> - rotate axis [[x,y,z],...]</li>
+					<li><strong>theta</strong> - arc angle</li>
+					<li><strong>radius</strong> - arc radius</li>
+					<li><strong>centers</strong> - center of arc [[x,y,z],...]</li>
+				</td>
+			</tr>
+			
+		</tbody>
+	</table>
 </div>
 
 
