@@ -12,6 +12,9 @@
 	<script src="js/sisyphus.min.js"></script>
 	<script src="js/date.format.js"></script>
 	<script src="js/lightgl.js"></script>
+	<script src="js/jsbmp.js"></script>
+	<script src="js/jszip.js"></script>
+	<script src="js/datauri.js"></script>
 	<script src="js/underscore-min.js"></script>
 	<script src="js/jquery-ui-1.8.20.custom.min.js"></script>
 
@@ -96,6 +99,13 @@
 			$('#boundingBoxMaxX').val(bb.max.x).change();
 			$('#boundingBoxMaxY').val(bb.max.y).change();
 			$('#boundingBoxMaxZ').val(bb.max.z).change();
+		}
+
+		function getGrid(){
+			var gridX = parseFloat($('#gridX').val());
+			var gridY = parseFloat($('#gridY').val());
+			var gridZ = parseFloat($('#gridZ').val());
+			return {x:gridX,y:gridY,z:gridZ};
 		}
 
 		function incrementProgress(amount){
@@ -192,6 +202,23 @@
 			});
 			$('#showAxis').change();
 
+
+			$('#dlpXResolution').change(function(){
+				resolutionXPixels = parseInt($(this).val());
+			});
+			$('#dlpXResolution').change();
+
+			$('#dlpYResolution').change(function(){
+				resolutionYPixels = parseInt($(this).val());
+			});
+			$('#dlpYResolution').change();
+
+			$('#dlpProjectedXLength').change(function(){
+				projectedXmm = parseFloat($(this).val());
+			});
+			$('#dlpProjectedXLength').change();
+
+
 			$('#polygonise').click(function(e){			
 
 				working();
@@ -200,13 +227,10 @@
 				var f = new Function('', $('#editor1').val());
 				model = f();
 
-				var gridX = parseFloat($('#gridX').val());
-				var gridY = parseFloat($('#gridY').val());
-				var gridZ = parseFloat($('#gridZ').val());
 				var numWorkers = parseFloat($('#numWorkers').val());				
 				var isosurface = parseFloat($('#isosurface').val());
 
-				model.polygonise({x:gridX,y:gridY,z:gridZ}, getBoundingBox(), isosurface, numWorkers, function(mesh){
+				model.polygonise(getGrid(), getBoundingBox(), isosurface, numWorkers, function(mesh){
 					viewer.updateMesh(mesh);
 
 					if ($('#zoomCentre').attr('checked') == 'checked'){
@@ -232,6 +256,19 @@
 			$('#lineOverlay').change();
 
 
+			$('#slice').click(function(e){
+				if (!model || !(model instanceof CSG)){
+					notify("Model not yet created. Polygonise!")
+				} else {
+					notify("Generating Slices...");
+					working();
+					var zheight = 0.5;
+					model.sliceToBMP(zheight, getBoundingBox(), function(){
+						notworking();
+					});
+				}	
+			});
+
 			$('#stl').click(function(){
 				if (model == undefined || ! (model instanceof CSG)){
 					notify("Model not yet created. Polygonise!")
@@ -248,7 +285,7 @@
 			});
 
 			$('#clear').click(function(){
-				$('#info1').html('')
+				$('#log1').val('')
 			});
 
 			$('#boundingBoxMinAll').blur(function(){
@@ -318,13 +355,13 @@
 				}
 			});
 
-			$('#cameraX').click(function(e){
+			$('#cameraXZ').click(function(e){
 				viewer.cameraAngle(270,0,0);
 			});
-			$('#cameraY').click(function(e){
+			$('#cameraYZ').click(function(e){
 				viewer.cameraAngle(270,0,270);
 			});
-			$('#cameraZ').click(function(e){
+			$('#cameraXY').click(function(e){
 				viewer.cameraAngle(0,0,0);
 			});
 			$('#cameraIso').click(function(e){
@@ -422,6 +459,10 @@
 	</div>
 	<br>
 	<input type="button" value="Clear" id="clear" name="clear" />
+
+	<div id="sliceImageBorder">
+		<img src="" id="sliceImage">
+	</div>
 </div>
 
 <div id="panel1">
@@ -432,6 +473,7 @@
 		<form id="controlsForm">
 
 			<input type="button" value="Polygonise" id="polygonise" name="polygonise" />
+			&nbsp;<input type="button" value="Slice" id="slice" name="slice" />
 			&nbsp;<input type="button" value="STL" id="stl" name="stl" />
 			&nbsp;<input type="button" value="Reset" id="resetEditor" name="resetEditor" />
 			&nbsp;<input type="button" value="Help" id="help" name="help" />
@@ -457,14 +499,20 @@
 			</fieldset>
 			<fieldset>
 				<legend>Misc.</legend>
-				Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4" step="1" max="8", min="1" tabindex="20"/>
+				Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4" step="1" max="8" min="1" tabindex="20"/>
 				&nbsp;Isosurface: <input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1" tabindex="70"/>
 			</fieldset>		
+			<fieldset>
+				<legend>DLP</legend>
+				DLP Resolution: <input class="setting" id="dlpXResolution" name="dlpXResolution" type="number" value="800" step="1" min="0"/>&nbsp;:&nbsp;<input class="setting" id="dlpYResolution" name="dlpYResolution" type="number" value="600" step="1" tabindex="20"/>
+				<br>
+				Projected X Length (mm): <input class="setting" id="dlpProjectedXLength" name="dlpProjectedXLength" type="number" value="150.0" step="0.1"/>
+			</fieldset>
 			<fieldset id="camera">
 				<legend>Camera</legend>
-				<input type="button" id="cameraX" value="X"/>
-				<input type="button" id="cameraY" value="Y"/>
-				<input type="button" id="cameraZ" value="Z"/>
+				<input type="button" id="cameraXZ" value="XZ"/>
+				<input type="button" id="cameraYZ" value="YZ"/>
+				<input type="button" id="cameraXY" value="XY"/>
 				<input type="button" id="cameraIso" value="Iso"/>
 				<input type="button" id="cameraCentre" value="Centre"/>
 				<input type="button" id="cameraZoom" value="Zoom"/>
@@ -534,7 +582,7 @@
 				</td>
 			</tr>
 			<tr>
-				<td>CSG.torus[X|Y|Z]<span id="example">CSG.torusX({center:center, R:r, r0:r1})</span></td>
+				<td>CSG.torus[X|Y|Z]<span id="example">CSG.torusX({center:[0,0,0], R:2, r0:3})</span></td>
 				<td>Torus with X, Y or Z-axis</td>
 				<td>
 					<li><strong>center</strong> - center array</li>

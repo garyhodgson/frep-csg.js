@@ -84,7 +84,7 @@ onmessage = function(e){
 	        break;
 	    };
 	    postMessage({'msg':'STL write error. ' + msg});
-  }
+  	}
 
 	webkitRequestFileSystem(TEMPORARY, 0, function(fs) {
 	    fs.root.getFile('out.stl', {create: true}, function(fileEntry) {
@@ -114,9 +114,9 @@ onmessage = function(e){
 				};
 				fileWriter.truncate(0);					
 	            
-	        }, function(error) {errorHandler});
-	    }, function(error) {errorHandler});
-	}, function(error) {errorHandler});
+	        }, errorHandler);
+	    }, errorHandler);
+	}, errorHandler);
 
 }
 

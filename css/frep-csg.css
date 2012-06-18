@@ -53,3 +53,11 @@ canvas { cursor: move; }
 	background-color: #eee;
 	cursor: hand;
 }
+
+#sliceImage {
+	width: 150mm;
+}
+
+#sliceImageBorder {
+	border: 1px solid grey;
+}

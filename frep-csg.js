@@ -16,24 +16,228 @@ var showOutlines = false;
 var showBoundingBox = false;
 var highlightColor = [0.8,0.8,1];
 
+var projectedXmm = 150;
+var resolutionXPixels = 800;
+var resolutionYPixels = 600;
+var DLP_EXPOSE = 'FFFFFF';
+var DLP_MASK = '000000';
+
 var MAX_BOUNDING_BOX = {min:{x:-200.0,y:-200.0,z:-200.0},max:{x:200.0,y:200.0,z:200.0}};
-var MIN_BOUNDING_BOX_VALUE = 5.0
+var MIN_BOUNDING_BOX_VALUE = 0.0
 var MIN_BOUNDING_BOX = {min:{x:-MIN_BOUNDING_BOX_VALUE,y:-MIN_BOUNDING_BOX_VALUE,z:-MIN_BOUNDING_BOX_VALUE},max:{x:MIN_BOUNDING_BOX_VALUE,y:MIN_BOUNDING_BOX_VALUE,z:MIN_BOUNDING_BOX_VALUE}};
 var DEFAULT_GRID_SIZE = 50;
+
+var vertices = new Array();
+var normals = new Array();
+var indices = new Array();
+var colors = new Array();
 
 CSG = function(params, attrs, func) {
 	this.params = params;
 	this.attrs = attrs||{};
 	this.func = func;
 	this.funcDef = func.toString();	
-	this.vertices = new Array();
-	this.normals = new Array();
-	this.indices = new Array();
+}
+
+function fileWriterErrorHandler(e) {
+	var msg = '';
+	switch (e.code) {
+	  case FileError.QUOTA_EXCEEDED_ERR:
+	    msg = 'QUOTA_EXCEEDED_ERR';
+	    break;
+	  case FileError.NOT_FOUND_ERR:
+	    msg = 'NOT_FOUND_ERR';
+	    break;
+	  case FileError.SECURITY_ERR:
+	    msg = 'SECURITY_ERR';
+	    break;
+	  case FileError.INVALID_MODIFICATION_ERR:
+	    msg = 'INVALID_MODIFICATION_ERR';
+	    break;
+	  case FileError.INVALID_STATE_ERR:
+	    msg = 'INVALID_STATE_ERR';
+	    break;
+	  default:
+	    msg = 'Unknown Error';
+	    break;
+	};
+	console.log(msg)
+}
+
+function writeZipFile(data, filename){
+	webkitRequestFileSystem(TEMPORARY, 0, function(fs) {
+	    fs.root.getFile(filename, {create: true}, function(fileEntry) {
+	        fileEntry.createWriter(function(fileWriter) {
+	        	
+				fileWriter.onwriteend = function(e) {
+					fileWriter.onwriteend = null; // Avoid an infinite loop.
+					fileEntry.createWriter(function(fw) {
+
+						fw.onwriteend = function(e) {
+							document.location = fileEntry.toURL()
+						};
+
+						var builder = new WebKitBlobBuilder();
+
+						var byteString = atob(data);
+
+						var ab = new ArrayBuffer(byteString.length);
+					    var ia = new Uint8Array(ab);
+					    for (var i = 0; i < byteString.length; i++) {
+					        ia[i] = byteString.charCodeAt(i);
+					    }
+
+					    builder.append(ab);
+
+	  					fw.write(builder.getBlob('application/zip'));						
+					});
+	            };
+
+				fileWriter.onerror = function(e) {
+					console.log("writeZipFile:failed",e)
+				};
+				fileWriter.truncate(0);					
+	            
+	        }, fileWriterErrorHandler);
+	    }, fileWriterErrorHandler);
+	}, fileWriterErrorHandler);
+}
+function pad(num, size) {
+    var s = num+"";
+    while (s.length < size) s = "0" + s;
+    return s;
 }
 
 CSG.prototype = {
 	call: function(coords){
 		return this.func(coords, this.params, this.attrs);
+	},	
+	sliceToBMP: function(zSliceHeight, boundingBox, callback){
+
+		var totalZheight = boundingBox.max.z - boundingBox.min.z;
+		var zSliceCount = Math.round(totalZheight / zSliceHeight);
+
+		notify("Z Slice Count: " + zSliceCount);
+
+		var zip = new JSZip();
+		var base64encode = function(){
+		    // This is a non-standard extension available in Mozilla
+		    // and possibly other browsers.
+		    if (typeof window.btoa != "undefined")
+		        return window.btoa;
+
+		    /* JS fallback based on public domain code from Tyler Akins:
+		        http://rumkin.com/tools/compression/base64.php */
+		    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+		    function _btoa(data) {
+		        var chr1, chr2, chr3, enc1, enc2, enc3,
+		            i=0, length=data.length, output="";
+		        while (i < length) {
+		            // Convert 3 bytes of data into 4 6-bit chunks
+		            chr1 = data.charCodeAt(i++);
+		            chr2 = data.charCodeAt(i++);
+		            chr3 = data.charCodeAt(i++);
+
+		            enc1 = chr1 >> 2;                       // reduce byte to 6 bits
+		            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4); // last 2 bits of chr1 + first 4 of chr2
+		            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);// last 4 bits of chr2 + first 2 of chr3
+		            enc4 = chr3 & 63;                       // last 6 bits
+
+		            if (isNaN(chr2)) enc3 = enc4 = 64;      // pad with zeroes if necessary
+		            else if (isNaN(chr3)) enc4 = 64;
+
+		            output += chars.charAt(enc1) + chars.charAt(enc2) + chars.charAt(enc3) + chars.charAt(enc4);
+		        }
+		        return output;
+		    }
+		    return _btoa;
+		}();
+		var sliceCount = 0;
+		for (var z = boundingBox.min.z; z <= boundingBox.max.z; z+=zSliceHeight) {
+			var bmp = this.sliceToBMP_RLE8(z,boundingBox)
+
+			// note to self - not too sure about this way of skipping any initially blank screens as it would also skip any blank screens in the middle of the model. Is this a problem?
+			if (bmp){
+				var filename = pad((sliceCount++),5)+".bmp"
+				zip.file(filename, base64encode(bmp), {base64: true});
+			}
+		};
+		writeZipFile(zip.generate({base64:true}), "out.3dlp.zip");
+		callback();
+	},
+	sliceToBMP_RLE8: function(z, boundingBox){
+
+		var pixarray = [];
+
+		var aspectRatio = resolutionXPixels/resolutionYPixels;
+		
+		var projectedYmm = Math.round(projectedXmm/aspectRatio);
+
+		var pixelsXPerMM = resolutionXPixels / projectedXmm;
+		var pixelsYPerMM = resolutionYPixels / projectedYmm;
+
+		var mmPerPixelX = projectedXmm / resolutionXPixels;
+		var mmPerPixelY = projectedYmm / resolutionYPixels;
+
+		var modelDistanceXmm = Math.abs(boundingBox.min.x)+Math.abs(boundingBox.max.x);
+		var modelDistanceYmm = Math.abs(boundingBox.min.y)+Math.abs(boundingBox.max.y);
+
+		var modelDistanceXpx = modelDistanceXmm * pixelsXPerMM;
+		var modelDistanceYpx = modelDistanceYmm * pixelsYPerMM;
+
+		var remainingXPixelCount = Math.max(0, resolutionXPixels - modelDistanceXpx);
+		var remainingYPixelCount = Math.max(0, resolutionYPixels - modelDistanceYpx);
+
+		var run = [DLP_MASK,0];
+		var col;
+		var isBlank = true;
+
+		for (var y = 0; y < modelDistanceYpx; y++) {
+			if (run[1] > 0) {
+				pixarray.push(run);
+
+				if (remainingXPixelCount > 0){
+					pixarray.push([DLP_MASK,remainingXPixelCount]);	
+				}
+				
+				run = [DLP_MASK, 0];
+			}	
+
+			var yPoint = boundingBox.min.y + (y * mmPerPixelY);		
+
+			for (var x =0; x < modelDistanceXpx; x++){
+
+				var xPoint = boundingBox.min.x + (x * mmPerPixelX);
+				
+				var result = this.call([xPoint,yPoint,z])[0]
+				
+				if (result >=0){
+					col = DLP_EXPOSE;
+					isBlank = false;
+				} else {
+					col = DLP_MASK;
+				}
+
+				if (run[0] == col){
+					run[1]++;
+				} else {
+					pixarray.push(run);
+					run = [col, 1];
+				}
+			}
+		}
+
+		if (isBlank){
+			return undefined;
+		}
+
+		if (remainingYPixelCount > 0){
+			for (var y2 = 0; y2 <= remainingYPixelCount; y2++){
+				pixarray.push([DLP_MASK,resolutionXPixels]);
+			}			
+		}
+
+		return bmp_rle8(resolutionXPixels, resolutionYPixels, pixarray)
 	},
 	polygonise: function(grid, boundingBox, isosurface, numWorkers, callback) {
 
@@ -45,14 +249,14 @@ CSG.prototype = {
 		var polygoniserWorkers = new Array(numWorkers);
 		var resultsCount = 0;
 		
-		this.verticesArray = new Array(numWorkers);
-		this.normalsArray = new Array(numWorkers);
-		this.indicesArray = new Array(numWorkers);
-		this.colorsArray = new Array(numWorkers);
-		this.vertices = new Array();
-		this.normals = new Array();
-		this.indices = new Array();
-		this.colors = new Array();
+		var verticesArray = new Array(numWorkers);
+		var normalsArray = new Array(numWorkers);
+		var indicesArray = new Array(numWorkers);
+		var colorsArray = new Array(numWorkers);
+		vertices = new Array();
+		normals = new Array();
+		indices = new Array();
+		colors = new Array();
 		var that = this;
 
 		var division = (Math.abs(boundingBox.min.z)+boundingBox.max.z)/numWorkers;
@@ -70,10 +274,10 @@ CSG.prototype = {
 
 					var workerId = parseInt(e.data.worker)
 
-					that.verticesArray[workerId] = e.data.results.vertices;
-					that.normalsArray[workerId] = e.data.results.normals;
-					that.indicesArray[workerId] = e.data.results.indices;
-					that.colorsArray[workerId] = e.data.results.colors;
+					verticesArray[workerId] = e.data.results.vertices;
+					normalsArray[workerId] = e.data.results.normals;
+					indicesArray[workerId] = e.data.results.indices;
+					colorsArray[workerId] = e.data.results.colors;
 
 					resultsCount++;
 					
@@ -82,23 +286,23 @@ CSG.prototype = {
 						var offset = 0
 
 						for(var h=0; h < numWorkers; h++){
-							that.vertices = that.vertices.concat(that.verticesArray[h]);
-							that.normals = that.normals.concat(that.normalsArray[h]);
-							that.colors = that.colors.concat(that.colorsArray[h]);
+							vertices = vertices.concat(verticesArray[h]);
+							normals = normals.concat(normalsArray[h]);
+							colors = colors.concat(colorsArray[h]);
 
-							var indexArray = that.indicesArray[h];
+							var indexArray = indicesArray[h];
 							for (var k in indexArray){
-								that.indices.push(parseInt(indexArray[k]) + offset)
+								indices.push(parseInt(indexArray[k]) + offset)
 							}
-							offset += that.verticesArray[h].length
+							offset += verticesArray[h].length
 						}
 
-						$('#currVertices').html(that.vertices.length)
-						$('#currNormals').html(that.normals.length)
-						$('#currColors').html(that.colors.length)
-						$('#currIndices').html(that.indices.length)
+						$('#currVertices').html(vertices.length)
+						$('#currNormals').html(normals.length)
+						$('#currColors').html(colors.length)
+						$('#currIndices').html(indices.length)
 
-						mesh = new GL.Mesh({ normals: true, colors: true });
+						var mesh = new GL.Mesh({ normals: true, colors: true });
 
 						/*  Add triangles along edges where normal angles > x deg  */
 						if (refine1){
@@ -106,19 +310,19 @@ CSG.prototype = {
 							refineIterationsCounter = refineIterations;	
 							while  (refineIterationsCounter-- > 0){
 
-								var indicesLength = that.indices.length
+								var indicesLength = indices.length
 								for (var i = 2; i < indicesLength; i+=3) {
 
-									var triIndex = [that.indices[i-2], that.indices[i - 1], that.indices[i]];
-									var tri = [that.vertices[triIndex[0]], that.vertices[triIndex[1]], that.vertices[triIndex[2]]];
+									var triIndex = [indices[i-2], indices[i - 1], indices[i]];
+									var tri = [vertices[triIndex[0]], vertices[triIndex[1]], vertices[triIndex[2]]];
 								
-									var v1 = that.vertices[triIndex[0]];
-									var v2 = that.vertices[triIndex[1]];
-									var v3 = that.vertices[triIndex[2]];
+									var v1 = vertices[triIndex[0]];
+									var v2 = vertices[triIndex[1]];
+									var v3 = vertices[triIndex[2]];
 
-									var n1 = that.normals[triIndex[0]];
-									var n2 = that.normals[triIndex[1]];
-									var n3 = that.normals[triIndex[2]];
+									var n1 = normals[triIndex[0]];
+									var n2 = normals[triIndex[1]];
+									var n3 = normals[triIndex[2]];
 									
 									var r1 = that.call(v1)[0];
 									var r2 = that.call(v2)[0];
@@ -139,60 +343,60 @@ CSG.prototype = {
 										var newVertex_v2v3 = [(v2[0]+v3[0])/2,(v2[1]+v3[1])/2,(v2[2]+v3[2])/2];
 										var newVertex_v3v1 = [(v3[0]+v1[0])/2,(v3[1]+v1[1])/2,(v3[2]+v1[2])/2];
 
-										that.vertices.push(newVertex_v1v2);
-										var vertIndex1 = that.vertices.length-1;
-										that.vertices.push(newVertex_v2v3);
-										var vertIndex2 = that.vertices.length-1;
-										that.vertices.push(newVertex_v3v1);
-										var vertIndex3 = that.vertices.length-1;
+										vertices.push(newVertex_v1v2);
+										var vertIndex1 = vertices.length-1;
+										vertices.push(newVertex_v2v3);
+										var vertIndex2 = vertices.length-1;
+										vertices.push(newVertex_v3v1);
+										var vertIndex3 = vertices.length-1;
 
 										var newNormal_n1n2 = [(n1[0]+n2[0])/2,(n1[1]+n2[1])/2,(n1[2]+n2[2])/2];
 										var newNormal_n2n3 = [(n2[0]+n3[0])/2,(n2[1]+n3[1])/2,(n2[2]+n3[2])/2];
 										var newNormal_n3n1 = [(n3[0]+n1[0])/2,(n3[1]+n1[1])/2,(n3[2]+n1[2])/2];
 
-										that.normals.push(newNormal_n1n2);
-										that.normals.push(newNormal_n2n3);
-										that.normals.push(newNormal_n3n1);
+										normals.push(newNormal_n1n2);
+										normals.push(newNormal_n2n3);
+										normals.push(newNormal_n3n1);
 
 										if (highlightRefinements){
-											that.colors.push(highlightColor);
-											that.colors.push(highlightColor);
-											that.colors.push(highlightColor);
+											colors.push(highlightColor);
+											colors.push(highlightColor);
+											colors.push(highlightColor);
 										} else {
-											var newColor_v1v2 = [(that.colors[triIndex[0]][0] + that.colors[triIndex[1]][0])/2,
-																 (that.colors[triIndex[0]][1] + that.colors[triIndex[1]][1])/2,
-																 (that.colors[triIndex[0]][2] + that.colors[triIndex[1]][2])/2];
-											that.colors.push(newColor_v1v2);
-											var newColor_v2v3 = [(that.colors[triIndex[1]][0] + that.colors[triIndex[2]][0])/2,
-																 (that.colors[triIndex[1]][1] + that.colors[triIndex[2]][1])/2,
-																 (that.colors[triIndex[1]][2] + that.colors[triIndex[2]][2])/2];
-											that.colors.push(newColor_v2v3);
-											var newColor_v3v1 = [(that.colors[triIndex[2]][0] + that.colors[triIndex[0]][0])/2,
-																 (that.colors[triIndex[2]][1] + that.colors[triIndex[0]][1])/2,
-																 (that.colors[triIndex[2]][2] + that.colors[triIndex[0]][2])/2];
-											that.colors.push(newColor_v3v1);											
+											var newColor_v1v2 = [(colors[triIndex[0]][0] + colors[triIndex[1]][0])/2,
+																 (colors[triIndex[0]][1] + colors[triIndex[1]][1])/2,
+																 (colors[triIndex[0]][2] + colors[triIndex[1]][2])/2];
+											colors.push(newColor_v1v2);
+											var newColor_v2v3 = [(colors[triIndex[1]][0] + colors[triIndex[2]][0])/2,
+																 (colors[triIndex[1]][1] + colors[triIndex[2]][1])/2,
+																 (colors[triIndex[1]][2] + colors[triIndex[2]][2])/2];
+											colors.push(newColor_v2v3);
+											var newColor_v3v1 = [(colors[triIndex[2]][0] + colors[triIndex[0]][0])/2,
+																 (colors[triIndex[2]][1] + colors[triIndex[0]][1])/2,
+																 (colors[triIndex[2]][2] + colors[triIndex[0]][2])/2];
+											colors.push(newColor_v3v1);											
 
 										}
 
-										that.indices.push(triIndex[0], vertIndex1,  vertIndex3);
-										that.indices.push(vertIndex1,  triIndex[1], vertIndex2);
-										that.indices.push(vertIndex2,  triIndex[2], vertIndex3);
-										that.indices.push(vertIndex1,  vertIndex2,  vertIndex3);
+										indices.push(triIndex[0], vertIndex1,  vertIndex3);
+										indices.push(vertIndex1,  triIndex[1], vertIndex2);
+										indices.push(vertIndex2,  triIndex[2], vertIndex3);
+										indices.push(vertIndex1,  vertIndex2,  vertIndex3);
 
-										delete that.indices[i-2];
-										delete that.indices[i-1];
-										delete that.indices[i];
+										delete indices[i-2];
+										delete indices[i-1];
+										delete indices[i];
 									}
 								}
 								var tmpIndices = []
-								for (var x=0; x<that.indices.length; x++){
-									var index = that.indices[x]
+								for (var x=0; x<indices.length; x++){
+									var index = indices[x]
 									if (index != undefined){
 										tmpIndices.push(index)
 									}
 								}
 
-								that.indices = tmpIndices
+								indices = tmpIndices
 								tmpIndices = undefined	
 							}
 						}
@@ -205,19 +409,19 @@ CSG.prototype = {
 							
 							while  (refineIterationsCounter-- > 0){
 
-								var indicesLength = that.indices.length
+								var indicesLength = indices.length
 								for (var i = 2; i < indicesLength; i+=3) {
 
-									var triIndex = [that.indices[i-2], that.indices[i - 1], that.indices[i]];
-									var tri = [that.vertices[triIndex[0]], that.vertices[triIndex[1]], that.vertices[triIndex[2]]];
+									var triIndex = [indices[i-2], indices[i - 1], indices[i]];
+									var tri = [vertices[triIndex[0]], vertices[triIndex[1]], vertices[triIndex[2]]];
 								
-									var v1 = that.vertices[triIndex[0]];
-									var v2 = that.vertices[triIndex[1]];
-									var v3 = that.vertices[triIndex[2]];
+									var v1 = vertices[triIndex[0]];
+									var v2 = vertices[triIndex[1]];
+									var v3 = vertices[triIndex[2]];
 
-									var n1 = that.normals[triIndex[0]];
-									var n2 = that.normals[triIndex[1]];
-									var n3 = that.normals[triIndex[2]];
+									var n1 = normals[triIndex[0]];
+									var n2 = normals[triIndex[1]];
+									var n3 = normals[triIndex[2]];
 									
 									var r1 = that.call(v1)[0];
 									var r2 = that.call(v2)[0];
@@ -244,40 +448,40 @@ CSG.prototype = {
 
 										var newResult = that.call([newX, newY, newZ])[0];
 
-										that.vertices.push([newX, newY, newZ]);
-										var vertIndex = that.vertices.length-1;
+										vertices.push([newX, newY, newZ]);
+										var vertIndex = vertices.length-1;
 
-										that.normals.push([newNormX, newNormY, newNormZ]);
-										var normIndex = that.normals.length-1;
+										normals.push([newNormX, newNormY, newNormZ]);
+										var normIndex = normals.length-1;
 
 										if (highlightRefinements){
-											that.colors.push(highlightColor);
+											colors.push(highlightColor);
 										} else {
-											var newColor = [(that.colors[triIndex[0]][0] + that.colors[triIndex[1]][0] + that.colors[triIndex[2]][0])/3,
-																 (that.colors[triIndex[0]][1] + that.colors[triIndex[1]][1] + that.colors[triIndex[2]][1])/3,
-																 (that.colors[triIndex[0]][2] + that.colors[triIndex[1]][2] + that.colors[triIndex[2]][2])/3];
-											that.colors.push(newColor);
+											var newColor = [(colors[triIndex[0]][0] + colors[triIndex[1]][0] + colors[triIndex[2]][0])/3,
+																 (colors[triIndex[0]][1] + colors[triIndex[1]][1] + colors[triIndex[2]][1])/3,
+																 (colors[triIndex[0]][2] + colors[triIndex[1]][2] + colors[triIndex[2]][2])/3];
+											colors.push(newColor);
 										}
 
-										that.indices.push(vertIndex, triIndex[0], triIndex[1]);
-										that.indices.push(vertIndex, triIndex[1], triIndex[2]);
-										that.indices.push(vertIndex, triIndex[2], triIndex[0]);
+										indices.push(vertIndex, triIndex[0], triIndex[1]);
+										indices.push(vertIndex, triIndex[1], triIndex[2]);
+										indices.push(vertIndex, triIndex[2], triIndex[0]);
 
-										delete that.indices[i-2];
-										delete that.indices[i-1];
-										delete that.indices[i];
+										delete indices[i-2];
+										delete indices[i-1];
+										delete indices[i];
 									}
 								}
 
 								var tmpIndices = []
-								for (var x=0; x<that.indices.length; x++){
-									var index = that.indices[x]
+								for (var x=0; x<indices.length; x++){
+									var index = indices[x]
 									if (index != undefined){
 										tmpIndices.push(index)
 									}
 								}
 
-								that.indices = tmpIndices
+								indices = tmpIndices
 								tmpIndices = undefined	
 							}
 
@@ -290,10 +494,10 @@ CSG.prototype = {
 							    return Math[number < 0 ? 'ceil' : 'floor'](number);
 							};
 
-							var verticesLength = that.vertices.length;
+							var verticesLength = vertices.length;
 							for (var i = 0; i < verticesLength; i++) {
-								var v = $.extend(true, [], that.vertices[i]);
-								var n = that.normals[i];
+								var v = $.extend(true, [], vertices[i]);
+								var n = normals[i];
 								var r = that.call(v)[0]
 								var breakout = sharpenBreakoutMax;
 
@@ -304,10 +508,10 @@ CSG.prototype = {
 								while (Math.abs(truncated) != 0.0000 && breakout >= 0) {
 
 									for (var i2 = 0; i2 < 3; i2++) {
-										that.vertices[i][i2] += n[i2] * (r/3);
+										vertices[i][i2] += n[i2] * (r/3);
 									}
 
-									r = that.call(that.vertices[i])[0]
+									r = that.call(vertices[i])[0]
 
 									truncated = truncateDecimals(r.toFixed(4) * 1000) / 1000
 
@@ -321,24 +525,25 @@ CSG.prototype = {
 								*/
 								if (Math.abs(truncated)>Math.abs(rIn)){
 								//	console.log("Extreme value, resetting.")
-									that.vertices[i] = v;
+									vertices[i] = v;
 								}
-								
-								
-								
-								
 								
 							}
 						}
 
-						for (var i = 2; i < that.indices.length; i+=3) {
-							mesh.triangles.push([that.indices[i-2], that.indices[i - 1], that.indices[i]]);
+						for (var i = 2; i < indices.length; i+=3) {
+							mesh.triangles.push([indices[i-2], indices[i - 1], indices[i]]);
 						}
 
-						mesh.vertices = that.vertices;
-						mesh.normals = that.normals;
-						mesh.colors = that.colors;
+						mesh.vertices = vertices;
+						mesh.normals = normals;
+						mesh.colors = colors;
 						mesh.computeWireframe();
+
+						verticesArray = null;
+						normalsArray = null;
+						indicesArray = null;
+						colorsArray = null;
 						
 						callback(mesh);
 					}
@@ -354,7 +559,7 @@ CSG.prototype = {
 	},
 	
 	toStl: function(callback){
-		if (this.vertices == undefined || this.vertices.length == 0){
+		if (vertices == undefined || vertices.length == 0){
 			notify("No vertices found, Polygonise!")
 			return;
 		}
@@ -374,61 +579,63 @@ CSG.prototype = {
 				incrementProgress(e.data.progress);
 			}
 		};
-		stlOutputWorker.postMessage({'vertices':this.vertices,'indices':this.indices});
+		stlOutputWorker.postMessage({'vertices':vertices,'indices':indices});
 	},
 	union: function(otherCsg){
-		// from Frep Library in HyperFun Polygonizer
-		var params = [this.params, otherCsg.params];
-		var attrs =  [this.attrs, otherCsg.attrs];
-		var funcDef = "	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
-						var result1 = f1[0]; \
-						var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
-						var result2 = f2[0]; \
-						var result = (1/(1+ALPHA))*(result2 + result1 + Math.sqrt(Math.abs(result2*result2 + result1*result1-2*ALPHA*result1*result2))); \
-								\
-						var attrs1 = f1[1];\
-						var attrs2 = f2[1];\
-						var attrs = {}; \
-								\
-						var col1 = attrs1.color || [1,1,1]; \
-						var col2 = attrs2.color || [1,1,1]; \
-						var unionCol = [1,1,1]; \
-						if (result2.toFixed(2) >= 0.0 && result1.toFixed(2) >= 0.0) { \
-							unionCol[0] = (col1[0] + col2[0]) / 2; \
-							unionCol[1] = (col1[1] + col2[1]) / 2; \
-							unionCol[2] = (col1[2] + col2[2]) / 2; \
-						} else if (result1 > result2){ \
-							unionCol = col1; \
-						} else { \
-							unionCol = col2; \
-						} \
-						attrs.color = unionCol; \
-						return [result, attrs];";
-		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
+		this.manipulate([this.params, otherCsg.params],[this.attrs, otherCsg.attrs],
+			"	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var result1 = f1[0]; \
+				var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
+				var result2 = f2[0]; \
+				var result = (1/(1+ALPHA))*(result2 + result1 + Math.sqrt(Math.abs(result2*result2 + result1*result1-2*ALPHA*result1*result2))); \
+						\
+				var attrs1 = f1[1];\
+				var attrs2 = f2[1];\
+				var attrs = {}; \
+						\
+				var col1 = attrs1.color || [1,1,1]; \
+				var col2 = attrs2.color || [1,1,1]; \
+				var unionCol = [1,1,1]; \
+				if (result2.toFixed(2) >= 0.0 && result1.toFixed(2) >= 0.0) { \
+					unionCol[0] = (col1[0] + col2[0]) / 2; \
+					unionCol[1] = (col1[1] + col2[1]) / 2; \
+					unionCol[2] = (col1[2] + col2[2]) / 2; \
+				} else if (result1 > result2){ \
+					unionCol = col1; \
+				} else { \
+					unionCol = col2; \
+				} \
+				attrs.color = unionCol; \
+				return [result, attrs];");
+		return this;
 	},
 	intersect: function(otherCsg){
-		var params = [this.params, otherCsg.params];
-		var attrs =  [this.attrs, otherCsg.attrs];
-		var funcDef = "	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
-						var result1 = f1[0]; \
-						var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
-						var result2 = f2[0]; \
-						var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
-						return [result, _.extend({}, f2[1], f1[1])]";
-		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
+		this.manipulate([this.params, otherCsg.params],[this.attrs, otherCsg.attrs],
+		"	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
+			var result1 = f1[0]; \
+			var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
+			var result2 = f2[0]; \
+			var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
+			return [result, _.extend({}, f2[1], f1[1])]");
+		return this;
 	},
 	subtract: function(otherCsg){
-		var params = [this.params, otherCsg.params];
-		var attrs =  [this.attrs, otherCsg.attrs];
-		var funcDef = "	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
-						var result1 = f1[0]; \
-						var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
-						var result2 = f2[0]; \
-						result2 = -result2; \
-						var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
-						return [result, _.extend({}, f2[1], f1[1])]; \
-						";
-		return new CSG(params, attrs, new Function('coords', 'params', 'attrs', funcDef));
+		this.manipulate([this.params, otherCsg.params],[this.attrs, otherCsg.attrs],
+			"	var f1 = "+this.func.toString()+"(coords,params[0],attrs[0]);\
+				var result1 = f1[0]; \
+				var f2 = "+otherCsg.func.toString()+"(coords,params[1],attrs[1]); \
+				var result2 = f2[0]; \
+				result2 = -result2; \
+				var result = (1/(1+ALPHA))*(result2 + result1 - Math.sqrt(Math.abs(result2*result2 + result1*result1 - 2*ALPHA*result1*result2))); \
+				return [result, _.extend({}, f2[1], f1[1])]; \
+				");
+		return this;
+	},
+	manipulate: function(params, attrs, funcDef) {
+		this.params = params;
+		this.attrs = attrs;
+		this.func = new Function('coords', 'params', 'attrs', funcDef);
+		this.funcDef = this.func.toString();
 	},
 	//	RotateX
 	//	Definition: inverse mapping
@@ -437,7 +644,7 @@ CSG.prototype = {
     //	Parameters:
     //		theta - rotation angle in radians
 	rotateX: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var theta = params[1].theta; \
 				var ct = Math.cos(theta); \
 				var st = Math.sin(theta); \
@@ -447,8 +654,9 @@ CSG.prototype = {
 				newcoords[0] = coords[0]; \
 				newcoords[1] = yr;\
 				newcoords[2] = zr;\
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 				");
+		return this;
 	},
 	//	RotateY
 	//	Definition: inverse mapping
@@ -457,17 +665,19 @@ CSG.prototype = {
     //	Parameters:
     //		theta - rotation angle in radians
 	rotateY: function(p){
-		return CSG.methodFactory(this, p, "	var theta = params[1].theta; \
-						var ct = Math.cos(theta); \
-						var st = Math.sin(theta); \
-						var zr = coords[2] * ct + coords[0] * st; \
-						var xr = -coords[2] * st + coords[0] * ct; \
-						var newcoords = []; \
-						newcoords[0] = xr; \
-						newcoords[1] = coords[1]; \
-						newcoords[2] = zr; \
-						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
-						");
+		this.manipulate([this.params, p], this.attrs, 
+			"	var theta = params[1].theta; \
+				var ct = Math.cos(theta); \
+				var st = Math.sin(theta); \
+				var zr = coords[2] * ct + coords[0] * st; \
+				var xr = -coords[2] * st + coords[0] * ct; \
+				var newcoords = []; \
+				newcoords[0] = xr; \
+				newcoords[1] = coords[1]; \
+				newcoords[2] = zr; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
+					");
+		return this;
 	},
 	//	RotateZ
 	//	Definition: inverse mapping
@@ -476,17 +686,19 @@ CSG.prototype = {
     //	Parameters:
     //		theta - rotation angle in radians
 	rotateZ: function(p){
-		return CSG.methodFactory(this, p, "	var theta = params[1].theta; \
-						var ct = Math.cos(theta); \
-						var st = Math.sin(theta); \
-						var xr = coords[0] * ct + coords[1] * st; \
-						var yr = -coords[0] * st + coords[1] * ct; \
-						var newcoords = []; \
-						newcoords[0] = xr; \
-						newcoords[1] = yr; \
-						newcoords[2] = coords[2]; \
-						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
-						");
+		this.manipulate([this.params, p], this.attrs, 
+			"	var theta = params[1].theta; \
+				var ct = Math.cos(theta); \
+				var st = Math.sin(theta); \
+				var xr = coords[0] * ct + coords[1] * st; \
+				var yr = -coords[0] * st + coords[1] * ct; \
+				var newcoords = []; \
+				newcoords[0] = xr; \
+				newcoords[1] = yr; \
+				newcoords[2] = coords[2]; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
+				");
+		return this;
 	},
 	//	TwistX
 	//	Definition: inverse mapping
@@ -498,22 +710,24 @@ CSG.prototype = {
 	//		x1, x2 - end points of x-interval
  	//		theta1, theta2 - rotation angles in radians for end points
 	twistX: function(p){
-		return CSG.methodFactory(this, p, "	var theta1 = params[1].theta1; \
-						var theta2 = params[1].theta2; \
-						var x1 = params[1].x1; \
-						var x2 = params[1].x2; \
-						var t = (coords[0]-x1)/(x2-x1); \
-						var theta = (1-t)*theta1 + t*theta2; \
-						var ct = Math.cos(theta); \
-						var st = Math.sin(theta); \
-						var yr = coords[1] * ct + coords[2] * st; \
-						var zr = -coords[1] * st + coords[2] * ct; \
-						var newcoords = []; \
-						newcoords[0] = coords[0]; \
-						newcoords[1] = yr; \
-						newcoords[2] = zr; \
-						return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
-						");
+		this.manipulate([this.params, p], this.attrs, 
+			"	var theta1 = params[1].theta1; \
+				var theta2 = params[1].theta2; \
+				var x1 = params[1].x1; \
+				var x2 = params[1].x2; \
+				var t = (coords[0]-x1)/(x2-x1); \
+				var theta = (1-t)*theta1 + t*theta2; \
+				var ct = Math.cos(theta); \
+				var st = Math.sin(theta); \
+				var yr = coords[1] * ct + coords[2] * st; \
+				var zr = -coords[1] * st + coords[2] * ct; \
+				var newcoords = []; \
+				newcoords[0] = coords[0]; \
+				newcoords[1] = yr; \
+				newcoords[2] = zr; \
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
+				");
+		return this;
 	},
 	//	TwistY
 	//	Definition: inverse mapping
@@ -525,7 +739,7 @@ CSG.prototype = {
 	//		y1, y2 - end points of y-interval
 	//		theta1, theta2 - rotation angles in radians for end points
 	twistY: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var theta1 = params[1].theta1; \
 				var theta2 = params[1].theta2; \
 				var y1 = params[1].y1; \
@@ -540,8 +754,9 @@ CSG.prototype = {
 				newcoords[0] = xr; \
 				newcoords[1] = coords[1]; \
 				newcoords[2] = zr; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 				");
+		return this;
 	},
 	//	TwistZ
 	//	Definition: inverse mapping
@@ -553,7 +768,7 @@ CSG.prototype = {
 	//		z1, z2 - end points of z-interval
 	//		theta1, theta2 - rotation angles in radians for end points
 	twistZ: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var theta1 = params[1].theta1; \
 				var theta2 = params[1].theta2; \
 				var z1 = params[1].z1; \
@@ -568,15 +783,16 @@ CSG.prototype = {
 				newcoords[0] = xr; \
 				newcoords[1] = yr; \
 				newcoords[2] = coords[2]; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 				");
+		return this;
 	},
 	//	Shift
 	//	Definition: x'=x+dx
 	//	Parameters:
  	//		dx,dy,dz - shift factors along axes
 	shift: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"   var dx = params[1].dx; \
 				var dy = params[1].dy; \
 				var dz = params[1].dz; \
@@ -584,8 +800,9 @@ CSG.prototype = {
 				newcoords[0] = coords[0] - dx; \
 				newcoords[1] = coords[1] - dy; \
 				newcoords[2] = coords[2] - dz; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 				");
+		return this;
 	},
 	//	Stretch
 	//	Definition: x'=x0+(x-x0)/scale  (inverse mapping)
@@ -593,7 +810,7 @@ CSG.prototype = {
 	//		x0 - reference point for stretching
  	//		sx,sy,sz - scaling factors along axes
  	stretch: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var x0 = params[1].x0; \
 				var sx = params[1].sx; \
 				var sy = params[1].sy; \
@@ -602,21 +819,23 @@ CSG.prototype = {
 				newcoords[0] = x0[0] + (coords[0] - x0[0]) / sx; \
 				newcoords[1] = x0[1] + (coords[1] - x0[1]) / sy; \
 				newcoords[2] = x0[2] + (coords[2] - x0[2]) / sz; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 			");
+		return this;
 	},
 	//	Scale
 	//	Definition: x'=sx*x
 	//	Parameters:
 	//		sx,sy,sz - scaling factors along axes
 	scale: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var newcoords = []; \
 				newcoords[0] = coords[0] / params[1].sx; \
 				newcoords[1] = coords[1] / params[1].sy; \
 				newcoords[2] = coords[2] / params[1].sz; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 			");
+		return this;
 	},
 	//	TaperX
 	//	Definition: inverse mapping
@@ -631,7 +850,7 @@ CSG.prototype = {
 	//		x1, x2 - end points of x-interval, x2 > x1
  	//		s1, s2 - scaling factors for end points
 	taperX: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var scale, t;            \
 				var s2 = params[1].s2;   \
 				var s1 = params[1].s1;   \
@@ -653,8 +872,9 @@ CSG.prototype = {
 				newcoords[0] = coords[0]; \
 				newcoords[1] = coords[1] / scale; \
 				newcoords[2] = coords[2] / scale; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 			");
+		return this;
 	},
 	//	TaperY
 	//	Definition: inverse mapping
@@ -669,7 +889,7 @@ CSG.prototype = {
 	//		y1, y2 - end points of y-interval, y2 > y1
  	//		s1, s2 - scaling factors for end points
 	taperY: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var scale, t;            \
 				var s2 = params[1].s2;   \
 				var s1 = params[1].s1;   \
@@ -691,8 +911,9 @@ CSG.prototype = {
 				newcoords[0] = coords[0] / scale; \
 				newcoords[1] = coords[1]; \
 				newcoords[2] = coords[2] / scale; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 			");
+		return this;
 	},
 	//	TaperZ
 	//	Definition: inverse mapping
@@ -707,7 +928,7 @@ CSG.prototype = {
 	//		z1, z2 - end points of z-interval, z2 > z1
  	//		s1, s2 - scaling factors for end points
 	taperZ: function(p){
-		return CSG.methodFactory(this, p, 
+		this.manipulate([this.params, p], this.attrs, 
 			"	var scale, t;            \
 				var s2 = params[1].s2;   \
 				var s1 = params[1].s1;   \
@@ -729,23 +950,27 @@ CSG.prototype = {
 				newcoords[0] = coords[0] / scale; \
 				newcoords[1] = coords[1] / scale; \
 				newcoords[2] = coords[2]; \
-				return "+this.func.toString()+"(newcoords,params[0],attrs[0]);\
+				return "+this.func.toString()+"(newcoords,params[0],attrs);\
 			");
+		return this;
 	},
 	clone: function(){
 		return new CSG(_.extend({}, this.params), _.extend({}, this.attrs), this.func);
 	},
 	setAttributes: function(attrs){
 		this.attrs = attrs;
+		return this;
 	},
 	setParameters: function(params){
 		this.params = params;
+		return this;
 	},
 	setAttribute: function(name, value){
 		if (this.attrs == undefined){
 			this.attrs = {};
 		}
 		this.attrs[name] = value;
+		return this;
 	},
 	getAttribute: function(name){
 		if (this.attrs == undefined){
@@ -758,23 +983,14 @@ CSG.prototype = {
 			this.params = {};
 		}
 		this.params[name] = value;
+		return this;
 	},
 	getParameter: function(name){
 		if (this.params == undefined){
 			return undefined;
 		}
 		return this.params[name];
-	},
-	shellify: function(p){
-		var core = this.clone();
 	}
-};
-
-CSG.methodFactory = function(csg, params, funcDef) {
-	var newParams = _.extend({}, csg.params);
-	var newAttrs = _.extend({}, csg.attrs);
-
-	return new CSG([newParams, params], [newAttrs], new Function('coords', 'params', 'attrs', funcDef));
 };
 
 /**Shapes **/
@@ -1341,4 +1557,45 @@ CSG.convArc = function(params, attrs){
 		return [result, attrs];
 
 	});
+};
+
+CSG.unionAll = function() {
+
+	if (arguments.length ==0){
+		return undefined;
+	}
+	var parts = [];
+	if (arguments.length == 1 && _.isArray(arguments[0])){
+		parts = arguments[0];
+	} else {
+		parts = arguments;
+	}
+
+	var unioned = parts[0]
+
+	for (var i=1; i < parts.length; i++){
+		unioned = unioned.union(parts[i])
+	}
+	return unioned;
+};
+
+CSG.intersectAll = function() {
+
+	if (arguments.length ==0){
+		return undefined;
+	}
+
+	var parts = [];
+	if (arguments.length == 1 && _.isArray(arguments[0])){
+		parts = arguments[0];
+	} else {
+		parts = arguments;
+	}
+
+	var intersected = parts[0]
+
+	for (var i=1; i < parts.length; i++){
+		intersected = unioned.intersect(parts[i])
+	}
+	return intersected;
 };

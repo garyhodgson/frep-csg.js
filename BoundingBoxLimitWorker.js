@@ -5,7 +5,7 @@ var BOUNDING_BOX_ACCURACY = 0.5;
 var BOUNDING_BOX_FIXED_PRECISION = 2;
 
 /*
-Algorithm: 
+Simple Bisect Algorithm: 
 	check min
 	if !found return min
 	if found check max
