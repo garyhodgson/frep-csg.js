@@ -21,6 +21,7 @@ onmessage = function(e){
 	polygonizer.polygonize(vertices, normals, indices, colors);
 
 	postMessage({'worker':e.data.worker,'results':{'vertices':vertices, 'normals':normals, 'indices':indices, 'colors':colors}})
+	close();
 
 }
 

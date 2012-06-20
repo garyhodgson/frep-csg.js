@@ -66,6 +66,7 @@ onmessage = function(e) {
 			break;
 	}
 	self.postMessage({'axis':axis,'dir':dir,'val':val});
+	close();
 
 }
 

@@ -262,7 +262,7 @@
 				} else {
 					notify("Generating Slices...");
 					working();
-					var zheight = 0.5;
+					var zheight = parseFloat($('#zheight').val());
 					model.sliceToBMP(zheight, getBoundingBox(), function(){
 						notworking();
 					});
@@ -505,6 +505,9 @@
 			<fieldset>
 				<legend>DLP</legend>
 				DLP Resolution: <input class="setting" id="dlpXResolution" name="dlpXResolution" type="number" value="800" step="1" min="0"/>&nbsp;:&nbsp;<input class="setting" id="dlpYResolution" name="dlpYResolution" type="number" value="600" step="1" tabindex="20"/>
+
+				&nbsp;<input class="setting" id="zheight" name="zheight" type="number" value="0.1" step="0.1" tabindex="21"/>
+
 				<br>
 				Projected X Length (mm): <input class="setting" id="dlpProjectedXLength" name="dlpProjectedXLength" type="number" value="150.0" step="0.1"/>
 			</fieldset>
