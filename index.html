@@ -9,7 +9,7 @@
 	<script src="js/jquery.textarea.js"></script>
 	<script src="js/jquery.mousewheel.js"></script>
 	<script src="js/modernizr.min.js"></script>
-	<script src="js/sisyphus.min.js"></script>
+	<script src="js/garlic.min.js"></script>
 	<script src="js/date.format.js"></script>
 	<script src="js/lightgl.js"></script>
 	<script src="js/jsbmp.js"></script>
@@ -24,6 +24,18 @@
 	<script src="viewer.js"></script>
 
 	<script>
+
+		function getUrlParam( param ){
+	      param = param.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+	      var exp = "[\\?&]"+param+"=([^&#]*)";
+	      var regexp = new RegExp( exp ); 
+	      var results = regexp.exec( window.location.href );
+	      if( results == null ){
+	        return undefined;
+	      } else {
+	        return results[1];
+	      }
+	    }
 
 		function insertAtCaret(areaId,text) {
 			var txtarea = document.getElementById(areaId);
@@ -138,10 +150,22 @@
 
 			new Viewer(viewerWidth, viewerHeight, 20, 'viewer1');
 
-			$('#controlsForm').sisyphus({excludeFields: $('.sisyphusignore')});
+			$('#controlsForm').garlic({conflictManager: {enabled: false}});
 			$('#editor1').tabby();
 
-			if (localStorage.getItem("lastFRepEdit") != undefined){
+			if (getUrlParam('content') !== undefined){
+
+				if (localStorage.getItem("lastFRepEdit") !== undefined) {
+					if (confirm("Overwrite existing editor contents with URL parameter value?")){
+						$('#editor1').val(unescape(getUrlParam('content')));
+					} else {
+						$('#editor1').val(localStorage.getItem("lastFRepEdit"));
+					}
+				} else {
+					$('#editor1').val(unescape(getUrlParam('content')));
+				}
+
+			} else if (localStorage.getItem("lastFRepEdit") !== undefined){
 				$('#editor1').val(localStorage.getItem("lastFRepEdit"));
 			} else {
 				$('#editor1').val(defaultEditorContent);
@@ -495,7 +519,7 @@
 				x: <input class="setting" id="gridX" name="gridX" type="number" value="40" min="0" tabindex="11"/>
 				y: <input class="setting" id="gridY" name="gridY" type="number" value="40" min="0" tabindex="12"/>
 				z: <input class="setting" id="gridZ" name="gridZ" type="number" value="40" min="0" tabindex="13"/>
-				&nbsp;(All: <input id="gridAll" name="gridAll" class="sisyphusignore" type="number" value="" min="0" tabindex="10"/>)
+				&nbsp;(All: <input id="gridAll" name="gridAll" data-storage="false" type="number" value="" min="0" tabindex="10"/>)
 			</fieldset>
 			<fieldset>
 				<legend>Misc.</legend>
@@ -527,13 +551,13 @@
 				x: <input class="setting" id="boundingBoxMinX" name="boundingBoxMinX" type="number" value="-10" step="0.5" tabindex="50" />
 				y: <input class="setting" id="boundingBoxMinY" name="boundingBoxMinY" type="number" value="-10" step="0.5" tabindex="51" />
 				z: <input class="setting" id="boundingBoxMinZ" name="boundingBoxMinZ" type="number" value="-10" step="0.5" tabindex="52" />
-				&nbsp;(All: <input id="boundingBoxMinAll" name="boundingBoxMinAll" class="sisyphusignore" type="number" value="" step="0.5" tabindex="30"/>)
+				&nbsp;(All: <input id="boundingBoxMinAll" name="boundingBoxMinAll" data-storage="false" type="number" value="" step="0.5" tabindex="30"/>)
 				<br>
 				Max: 
 				x: <input class="setting" id="boundingBoxMaxX" name="boundingBoxMaxX" type="number" value="15" step="0.5" tabindex="60" />
 				y: <input class="setting" id="boundingBoxMaxY" name="boundingBoxMaxY" type="number" value="15" step="0.5" tabindex="61" />
 				z: <input class="setting" id="boundingBoxMaxZ" name="boundingBoxMaxZ" type="number" value="15" step="0.5" tabindex="62" />
-				&nbsp;(All: <input id="boundingBoxMaxAll" name="boundingBoxMaxAll" class="sisyphusignore" type="number" value="" step="0.5" tabindex="40"/>)
+				&nbsp;(All: <input id="boundingBoxMaxAll" name="boundingBoxMaxAll" data-storage="false" type="number" value="" step="0.5" tabindex="40"/>)
 				<br>
 				<a href="javascript://" id="findBoundingBox">calculate<a/>
 			</fieldset>
