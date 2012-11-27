@@ -222,22 +222,23 @@ function Viewer(width, height, depth, id) {
     }
 
     if (showAxis) {
+      var axisZoffset = 0.001;
       gl.begin(gl.LINES);
       gl.lineWidth(5.0);
       gl.color(1,0,0); 
-      gl.vertex(gridMin,0,0);
-      gl.vertex(gridMax,0,0);
-      gl.vertex(gridMax-0.25,-0.25,0);
-      gl.vertex(gridMax-0.25,0.25,0);
+      gl.vertex(gridMin,0,axisZoffset);
+      gl.vertex(gridMax,0,axisZoffset);
+      gl.vertex(gridMax-0.25,-0.25,axisZoffset);
+      gl.vertex(gridMax-0.25,0.25,axisZoffset);
       for (var i = gridMin; i < gridMax; i++){
         gl.vertex(i,-0.1,0);
         gl.vertex(i,0.1,0);
       }
       gl.color(0,1.0,0); 
-      gl.vertex(0,gridMin,0);
-      gl.vertex(0,gridMax,0);
-      gl.vertex(-0.25,gridMax-0.25,0);
-      gl.vertex(0.25,gridMax-0.25,0);
+      gl.vertex(0,gridMin,axisZoffset);
+      gl.vertex(0,gridMax,axisZoffset);
+      gl.vertex(-0.25,gridMax-0.25,axisZoffset);
+      gl.vertex(0.25,gridMax-0.25,axisZoffset);
       for (var i = gridMin; i < gridMax; i++){
         gl.vertex(-0.1,i,0);
         gl.vertex(0.1,i,0);
