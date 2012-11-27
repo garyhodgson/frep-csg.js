@@ -99,6 +99,23 @@ var S = [0.65, 0.65, 1];
 
 return CSG.convLine({T:0.5, S:S, begin:begin,end:end}).stretch({x0:[0,0,-8],sx:1,sy:1,sz:1.5}).twistZ({z1:-8,z2:10,theta1:1,theta2:3});
 
+// hollow
+
+        
+var begin = [[-8.0, 0.0, 0.0],
+             [0.0, -8.0, 0.0],
+             [0.0, 0.0, -8.0]];
+var end = [[8.0, 0.0, 0.0],
+           [0.0, 8.0, 0.0],
+           [0.0, 0.0, 8.0]];
+var S = [0.65, 0.65, 1];
+
+var skin = CSG.convLine({T:0.5, S:S, begin:begin,end:end}).stretch({x0:[0,0,-8],sx:1,sy:1,sz:1.5}).twistZ({z1:-8,z2:10,theta1:1,theta2:3});
+
+var hollow = CSG.convLine({T:0.5, S:S, begin:begin,end:end}).scale({sx:0.9,sy:0.9,sz:0.9}).stretch({x0:[0,0,-8],sx:1,sy:1,sz:1.5}).twistZ({z1:-8,z2:10,theta1:1,theta2:3})
+
+return skin.subtract(hollow)
+
 
 /************************************************************************************************************************/
 //convarc

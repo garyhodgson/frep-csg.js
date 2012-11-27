@@ -564,7 +564,6 @@ CSG.prototype = {
 			return;
 		}
 
-		resetProgress(this.indices.length/3);
 		var stlOutputWorker = new Worker('StlOutputWorker.js')
 		stlOutputWorker.onmessage = function(e){
 			if (e.data.msg != undefined){

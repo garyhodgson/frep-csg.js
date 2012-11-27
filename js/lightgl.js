@@ -221,9 +221,10 @@ function addImmediateMode() {
 // `deltaX`, `deltaY`, and `dragging`.
 function addEventListeners() {
   var context = gl, oldX = 0, oldY = 0, buttons = {}, hasOld = false;
+  var has = Object.prototype.hasOwnProperty;
   function isDragging() {
     for (var b in buttons) {
-      if (buttons[b]) return true;
+      if (has.call(buttons, b) && buttons[b]) return true;
     }
     return false;
   }
@@ -238,7 +239,7 @@ function addEventListeners() {
       if (typeof original[name] == 'function') {
         e[name] = (function(callback) {
           return function() {
-            callback.call(original, arguments);
+            callback.apply(original, arguments);
           };
         })(original[name]);
       } else {
@@ -308,11 +309,16 @@ function addEventListeners() {
   function reset() {
     hasOld = false;
   }
+  function resetAll() {
+    buttons = {};
+    hasOld = false;
+  }
   on(gl.canvas, 'mousedown', mousedown);
   on(gl.canvas, 'mousemove', mousemove);
   on(gl.canvas, 'mouseup', mouseup);
   on(gl.canvas, 'mouseover', reset);
   on(gl.canvas, 'mouseout', reset);
+  on(document, 'contextmenu', resetAll);
 }
 
 // ### Automatic keyboard state
@@ -1402,7 +1408,7 @@ Raytracer.hitTestTriangle = function(origin, ray, a, b, c) {
   var ab = b.subtract(a);
   var ac = c.subtract(a);
   var normal = ab.cross(ac).unit();
-  var t = normal.dot(a.subtract(origin)).divide(normal.dot(ray));
+  var t = normal.dot(a.subtract(origin)) / normal.dot(ray);
 
   if (t > 0) {
     var hit = origin.add(ray.multiply(t));
@@ -1449,6 +1455,10 @@ function regexMap(regex, text, callback) {
   }
 }
 
+// Non-standard names beginning with `gl_` must be mangled because they will
+// otherwise cause a compiler error.
+var LIGHTGL_PREFIX = 'LIGHTGL';
+
 // ### new GL.Shader(vertexSource, fragmentSource)
 // 
 // Compiles a shader program using the provided vertex and fragment shaders.
@@ -1492,10 +1502,10 @@ function Shader(vertexSource, fragmentSource) {
     var name = groups[1];
     if (source.indexOf(name) != -1) {
       var capitalLetters = name.replace(/[a-z_]/g, '');
-      usedMatrices[capitalLetters] = '_' + name;
+      usedMatrices[capitalLetters] = LIGHTGL_PREFIX + name;
     }
   });
-  if (source.indexOf('ftransform') != -1) usedMatrices.MVPM = '_gl_ModelViewProjectionMatrix';
+  if (source.indexOf('ftransform') != -1) usedMatrices.MVPM = LIGHTGL_PREFIX + 'gl_ModelViewProjectionMatrix';
   this.usedMatrices = usedMatrices;
 
   // The `gl_` prefix must be substituted for something else to avoid compile
@@ -1508,7 +1518,7 @@ function Shader(vertexSource, fragmentSource) {
     source = match ? match[1] + header + source.substr(match[1].length) : header + source;
     regexMap(/\bgl_\w+\b/g, header, function(result) {
       if (!(result in replaced)) {
-        source = source.replace(new RegExp('\\b' + result + '\\b', 'g'), '_' + result);
+        source = source.replace(new RegExp('\\b' + result + '\\b', 'g'), LIGHTGL_PREFIX + result);
         replaced[result] = true;
       }
     });
@@ -1654,7 +1664,7 @@ Shader.prototype = {
     for (var attribute in vertexBuffers) {
       var buffer = vertexBuffers[attribute];
       var location = this.attributes[attribute] ||
-        gl.getAttribLocation(this.program, attribute.replace(/^gl_/, '_gl_'));
+        gl.getAttribLocation(this.program, attribute.replace(/^(gl_.*)$/, LIGHTGL_PREFIX + '$1'));
       if (location == -1 || !buffer.buffer) continue;
       this.attributes[attribute] = location;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer.buffer);
@@ -1691,7 +1701,7 @@ Shader.prototype = {
 //
 // The arguments `width` and `height` give the size of the texture in texels.
 // WebGL texture dimensions must be powers of two unless `filter` is set to
-// either `gl.NEAREST` or `gl.REPEAT` and `wrap` is set to `gl.CLAMP_TO_EDGE`
+// either `gl.NEAREST` or `gl.LINEAR` and `wrap` is set to `gl.CLAMP_TO_EDGE`
 // (which they are by default).
 //
 // Texture parameters can be passed in via the `options` argument.

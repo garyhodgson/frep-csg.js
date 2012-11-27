@@ -144,9 +144,9 @@ function Viewer(width, height, depth, id) {
       gl.lineWidth(2);
       gl.begin(gl.LINES);
       gl.color(0, 0, 0); 
-      for (var i = 0; i < mesh.vertices.length; i++) {
-        var v = mesh.vertices[i]
-        var n = mesh.normals[i]
+      for (var i = 0; i < that.mesh.vertices.length; i++) {
+        var v = that.mesh.vertices[i]
+        var n = that.mesh.normals[i]
         gl.vertex(v[0],v[1],v[2]);
         gl.vertex(v[0]+n[0],v[1]+n[1],v[2]+n[2]);
       };
@@ -262,7 +262,7 @@ function Viewer(width, height, depth, id) {
   }
 
   this.hasMesh = function(){
-    return this.mesh != undefined; 
+    return this.mesh !== undefined; 
   }
 
   this.cameraAngle = function(X,Y,Z){
@@ -291,7 +291,9 @@ function Viewer(width, height, depth, id) {
     gl.loadIdentity();
     gl.perspective(45, width / height, 0.5, 1000);
     gl.matrixMode(gl.MODELVIEW);
-    gl.ondraw();
+    if (this.hasMesh()){
+      gl.ondraw();
+    }
   }
 
   $('#'+id).append(this.gl.canvas);

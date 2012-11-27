@@ -6,8 +6,8 @@
 	<link rel="stylesheet" href="css/smoothness/jquery-ui-1.8.20.custom.css" type="text/css" charset="utf-8" />
 
 	<script src="js/jquery.js"></script>
-	<script src="js/jquery.mousewheel.js"></script>
 	<script src="js/jquery.textarea.js"></script>
+	<script src="js/jquery.mousewheel.js"></script>
 	<script src="js/modernizr.min.js"></script>
 	<script src="js/sisyphus.min.js"></script>
 	<script src="js/date.format.js"></script>
@@ -120,7 +120,7 @@
 			}
 		}
 
-		$(document).ready(function() {
+		$(function() {
 			if (!Modernizr.webgl){
 				notify("This app needs webGL - Google Chrome would be a good choice of browser.")
 				return 
