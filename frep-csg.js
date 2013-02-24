@@ -571,7 +571,8 @@ CSG.prototype = {
 			}
 			if (e.data.url){
 				// navigate to file, will download
-				location.href = e.data.url;
+				//location.href = e.data.url;
+				window.open(e.data.url,'_blank');
 				callback();
 			}
 			if (e.data.progress != undefined){

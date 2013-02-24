@@ -95,17 +95,11 @@ onmessage = function(e){
 					fileWriter.onwriteend = null; // Avoid an infinite loop.
 					fileEntry.createWriter(function(fw) {
 
-						var builder = new WebKitBlobBuilder();
-
-		                for (var i = 0; i < stlOutput.length; i++){
-		                	builder.append(stlOutput[i]);
-		                }
-
 						fw.onwriteend = function(e) {
 							postMessage({'msg':'STL write completed.', 'url':fileEntry.toURL()});
 						};
 
-	  					fw.write(builder.getBlob('text/plain'));						
+	  					fw.write(new Blob(stlOutput, { "type" : "application\/sla" }));
 					});
 	            };
 
