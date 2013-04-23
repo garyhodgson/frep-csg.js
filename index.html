@@ -18,7 +18,7 @@
 	<script src="js/underscore-min.js"></script>
 	<script src="js/jquery-ui-1.8.20.custom.min.js"></script>
 
-	<script src="WorkerConsole.js"></script>
+	<script src="js/FileSaver.js"></script>
 
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
@@ -136,11 +136,6 @@
 			if (!Modernizr.webgl){
 				notify("This app needs webGL - Google Chrome would be a good choice of browser.")
 				return 
-			}
-			if (!canSaveStl()){
-				notify("This app requires webkitRequestFileSystem in order to save STL files. Google Chrome has this feature.")
-				$('#stl').attr("disabled", true);
-				$('#stl').attr("title", "This app requires webkitRequestFileSystem in order to save STL files.");
 			}
 
 			var model;
