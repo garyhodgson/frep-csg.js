@@ -17,9 +17,7 @@
 	<script src="js/datauri.js"></script>
 	<script src="js/underscore-min.js"></script>
 	<script src="js/jquery-ui-1.8.20.custom.min.js"></script>
-
 	<script src="js/FileSaver.js"></script>
-
 	<script src="frep-csg.js"></script>
 	<script src="viewer.js"></script>
 
@@ -28,7 +26,7 @@
 		function getUrlParam( param ){
 	      param = param.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
 	      var exp = "[\\?&]"+param+"=([^&#]*)";
-	      var regexp = new RegExp( exp ); 
+	      var regexp = new RegExp( exp );
 	      var results = regexp.exec( window.location.href );
 	      if( results == null ){
 	        return undefined;
@@ -41,9 +39,9 @@
 			var txtarea = document.getElementById(areaId);
 			var scrollPos = txtarea.scrollTop;
 			var strPos = 0;
-			var br = ((txtarea.selectionStart || txtarea.selectionStart == '0') ? 
+			var br = ((txtarea.selectionStart || txtarea.selectionStart == '0') ?
 			    "ff" : (document.selection ? "ie" : false ) );
-			if (br == "ie") { 
+			if (br == "ie") {
 			    txtarea.focus();
 			    var range = document.selection.createRange();
 			    range.moveStart ('character', -txtarea.value.length);
@@ -51,11 +49,11 @@
 			}
 			else if (br == "ff") strPos = txtarea.selectionStart;
 
-			var front = (txtarea.value).substring(0,strPos);  
-			var back = (txtarea.value).substring(strPos,txtarea.value.length); 
+			var front = (txtarea.value).substring(0,strPos);
+			var back = (txtarea.value).substring(strPos,txtarea.value.length);
 			txtarea.value=front+text+back;
 			strPos = strPos + text.length;
-			if (br == "ie") { 
+			if (br == "ie") {
 			    txtarea.focus();
 			    var range = document.selection.createRange();
 			    range.moveStart ('character', -txtarea.value.length);
@@ -74,9 +72,9 @@
 		function notify(msg, append){
 			var d = new Date();
 			if (append){
-				$('#log1').append(msg);	
+				$('#log1').append(msg);
 			} else {
-				$('#log1').prepend(d.format('h:MM:ss > ') + msg+"\n");	
+				$('#log1').prepend(d.format('h:MM:ss > ') + msg+"\n");
 			}
 		}
 
@@ -128,14 +126,14 @@
 		function resetProgress(max){
 			$('#zProgress').val(0);
 			if (max != undefined){
-				$('#zProgress').attr("max", max);	
+				$('#zProgress').attr("max", max);
 			}
 		}
 
 		$(function() {
 			if (!Modernizr.webgl){
 				notify("This app needs webGL - Google Chrome would be a good choice of browser.")
-				return 
+				return
 			}
 
 			var model;
@@ -238,7 +236,7 @@
 			$('#dlpProjectedXLength').change();
 
 
-			$('#polygonise').click(function(e){			
+			$('#polygonise').click(function(e){
 
 				working();
 				resetProgress($('#gridZ').val());
@@ -246,7 +244,7 @@
 				var f = new Function('', $('#editor1').val());
 				model = f();
 
-				var numWorkers = parseFloat($('#numWorkers').val());				
+				var numWorkers = parseFloat($('#numWorkers').val());
 				var isosurface = parseFloat($('#isosurface').val());
 
 				model.polygonise(getGrid(), getBoundingBox(), isosurface, numWorkers, function(mesh){
@@ -260,9 +258,9 @@
 					notworking();
 					setTimeout(function(){
 						resetProgress();
-					}, 1000);			
+					}, 1000);
 				});
-					
+
 			});
 
 			$('#editor1').live('keyup blur', function(){
@@ -285,7 +283,7 @@
 					model.sliceToBMP(zheight, getBoundingBox(), function(){
 						notworking();
 					});
-				}	
+				}
 			});
 
 			$('#stl').click(function(){
@@ -300,7 +298,7 @@
 							resetProgress();
 						}, 1000);
 					});
-				}				
+				}
 			});
 
 			$('#clear').click(function(){
@@ -349,7 +347,7 @@
 						var resultsCount = 0;
 
 						for (var i = 0; i <6; i++){
-							workers[i] = new Worker('boundingBoxLimitWorker.js');
+							workers[i] = new Worker('BoundingBoxLimitWorker.js');
 							workers[i].onmessage =  function(e) {
 								var field = $('#boundingBox'+e.data.dir.substr(0,1).toUpperCase()+e.data.dir.substr(1)+e.data.axis.toUpperCase())
 								field.val(e.data.val).change();
@@ -369,8 +367,8 @@
 						workers[3].postMessage({'axis':'y','dir':'max','funcDef':model.funcDef,'params':model.params, 'attrs':model.attrs});
 						workers[4].postMessage({'axis':'z','dir':'min','funcDef':model.funcDef,'params':model.params, 'attrs':model.attrs});
 						workers[5].postMessage({'axis':'z','dir':'max','funcDef':model.funcDef,'params':model.params, 'attrs':model.attrs});
-						
-					}, 100);					
+
+					}, 100);
 				}
 			});
 
@@ -410,7 +408,7 @@
 			});
 
 			if ($('#polygoniseOnLoad').attr('checked')) {
-				$('#polygonise').click();	
+				$('#polygonise').click();
 			}
 
 			$(".editor").keypress(function(e) {
@@ -453,6 +451,7 @@
 
 		});
 	</script>
+
 </head>
 <body>
 
@@ -520,7 +519,7 @@
 				<legend>Misc.</legend>
 				Workers: <input class="setting" id="numWorkers" name="numWorkers" type="number" value="4" step="1" max="8" min="1" tabindex="20"/>
 				&nbsp;Isosurface: <input class="setting" id="isosurface" name="isosurface" type="number" value="0.0" step="0.1" tabindex="70"/>
-			</fieldset>		
+			</fieldset>
 			<fieldset>
 				<legend>DLP</legend>
 				DLP Resolution: <input class="setting" id="dlpXResolution" name="dlpXResolution" type="number" value="800" step="1" min="0"/>&nbsp;:&nbsp;<input class="setting" id="dlpYResolution" name="dlpYResolution" type="number" value="600" step="1" tabindex="20"/>
@@ -542,13 +541,13 @@
 
 			<fieldset id="boundingBox">
 				<legend>Bounding Box</legend>
-				Min: 
+				Min:
 				x: <input class="setting" id="boundingBoxMinX" name="boundingBoxMinX" type="number" value="-10" step="0.5" tabindex="50" />
 				y: <input class="setting" id="boundingBoxMinY" name="boundingBoxMinY" type="number" value="-10" step="0.5" tabindex="51" />
 				z: <input class="setting" id="boundingBoxMinZ" name="boundingBoxMinZ" type="number" value="-10" step="0.5" tabindex="52" />
 				&nbsp;(All: <input id="boundingBoxMinAll" name="boundingBoxMinAll" data-storage="false" type="number" value="" step="0.5" tabindex="30"/>)
 				<br>
-				Max: 
+				Max:
 				x: <input class="setting" id="boundingBoxMaxX" name="boundingBoxMaxX" type="number" value="15" step="0.5" tabindex="60" />
 				y: <input class="setting" id="boundingBoxMaxY" name="boundingBoxMaxY" type="number" value="15" step="0.5" tabindex="61" />
 				z: <input class="setting" id="boundingBoxMaxZ" name="boundingBoxMaxZ" type="number" value="15" step="0.5" tabindex="62" />
@@ -705,7 +704,7 @@
 					<li><strong>centers</strong> - center of arc [[x,y,z],...]</li>
 				</td>
 			</tr>
-			
+
 		</tbody>
 	</table>
 </div>
